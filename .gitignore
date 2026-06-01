@@ -1,0 +1,36 @@
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode / macOS build output
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcuserstate
+
+# Local app/package outputs
+dist/
+dist-sandbox/
+dist-developer-id/
+dist-app-store/
+dmg-staging/
+release/
+*.dmg
+*.pkg
+*.zip
+
+# Signing / secrets
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+.env
+.env.*
+
+# Logs and diagnostics
+*.log
+Logs/
+SupportBundles/
