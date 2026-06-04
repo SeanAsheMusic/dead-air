@@ -13,15 +13,15 @@ If macOS blocks launch, stop and ask for a new DMG. Do not use right-click Open 
 
 ## First Setup
 
-Use the setup wizard on first launch:
+Use Setup Assistant on first launch:
 
-1. Choose the closest preset.
+1. Choose the closest EZ Setup preset.
 2. Select your output device and stereo pair.
 3. Keep 48 kHz unless your show system requires another sample rate.
 4. Choose Copy for maximum safety or Reference to leave files where they are.
 5. Select the exact DAW/IAC MIDI source if using MIDI.
-6. Enable Lighting only if using Lightkey, Custom OSC, or MIDI lighting cues.
-7. Send a test cue before rehearsal.
+6. Use the Connectors step for Lightkey, Luminescence, Show Off, Custom OSC, MIDI fallback, or inbound MIDI/OSC only.
+7. Send a test connector cue before rehearsal.
 
 ## Beta Feedback
 
@@ -30,8 +30,8 @@ Please note:
 - macOS version
 - audio interface or virtual output used
 - DAW or DJ app used
-- lighting app used, if any
+- connector target used, if any
 - exact steps before any issue
 - whether Dead Air showed a warning in Preflight or Event Log
 
-Dead Air keeps audio local. It does not upload audio, playlists, MIDI maps, lighting cue maps, or logs.
+Dead Air keeps audio local. It does not upload audio, playlists, MIDI maps, connector cue maps, or logs.

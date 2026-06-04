@@ -156,7 +156,7 @@ struct DeadAirApp: App {
         WindowGroup("Dead Air", id: "main") {
             ContentView()
                 .environmentObject(model)
-                .frame(minWidth: 1180, minHeight: 760)
+                .frame(minWidth: 480, minHeight: 420)
                 .task {
                     model.start()
                 }
@@ -173,16 +173,16 @@ struct DeadAirApp: App {
                 Button("Panic Mute") { model.uiCommand(.panic) }
                     .keyboardShortcut(.escape, modifiers: [.command])
                 Divider()
-                Button("Close to Menu Bar") {
+                Button("Close Main Window to Menu Bar") {
                     closeMainWindowToMenuBar()
                 }
                 .keyboardShortcut("m", modifiers: [.command, .shift])
             }
-            CommandMenu("Setup") {
-                Button("New Setup") { model.presentSetupWizard() }
+            CommandMenu("Setup & Support") {
+                Button("Run Setup Assistant") { model.presentSetupWizard() }
                     .keyboardShortcut(",", modifiers: [.command, .shift])
-                Button("Save Default Setup") { model.saveDefaultSetup() }
-                Button("Export Support Bundle") { model.exportSupportBundle() }
+                Button("Save Current Setup as Default") { model.saveDefaultSetup() }
+                Button("Export Redacted Support Bundle") { model.exportSupportBundle() }
             }
             CommandGroup(replacing: .help) {
                 Button("Dead Air Help") { model.presentHelpCenter() }
@@ -198,7 +198,7 @@ struct DeadAirApp: App {
         Settings {
             DeadAirSettingsWindow()
                 .environmentObject(model)
-                .frame(width: 780, height: 620)
+                .frame(minWidth: 480, idealWidth: 780, minHeight: 420, idealHeight: 620)
                 .preferredColorScheme(model.preferredColorScheme)
                 .task {
                     model.start()
@@ -278,6 +278,8 @@ final class DeadAirModel: ObservableObject {
     private var pendingAudioRecoveryWorkItem: DispatchWorkItem?
     private var lastLightingFireTimes: [String: Date] = [:]
     private var terminationObserver: NSObjectProtocol?
+    private let externalControlStartupSafetyInterval: TimeInterval = 3
+    private var externalControlReadyAt = Date.distantFuture
 
     var selectedBedID: UUID? {
         get { config.selectedBedID }
@@ -517,6 +519,8 @@ final class DeadAirModel: ObservableObject {
         guard !hasStarted else { return }
         hasStarted = true
         config = persistence.loadConfig()
+        let restoredShowModeArmed = config.showModeArmed
+        config.showModeArmed = false
         config.version = "4.0.0"
         beds = persistence.loadManifest().beds
         showProfiles = persistence.loadProfiles()
@@ -540,6 +544,13 @@ final class DeadAirModel: ObservableObject {
             redactSensitiveData: config.logging.redactSensitiveData,
             retentionDays: config.logging.retentionDays
         )
+        if restoredShowModeArmed {
+            log(
+                source: "system",
+                message: "Show Mode reset on launch",
+                raw: "External show control opens disarmed for playback safety."
+            )
+        }
         refreshDevices()
         refreshMIDIEndpoints()
         audio.setConfigurationChangeHandler { [weak self] in
@@ -556,6 +567,7 @@ final class DeadAirModel: ObservableObject {
                 rightChannel: config.audio.outputRightChannel
             )
             audio.setTargetLevel(db: config.audio.targetLevelDb)
+            audio.panicMute()
             try primeSelectedBed(muted: true)
             markReadyMuted()
         } catch {
@@ -1271,6 +1283,7 @@ final class DeadAirModel: ObservableObject {
     }
 
     private func startControlIngress() {
+        externalControlReadyAt = Date().addingTimeInterval(externalControlStartupSafetyInterval)
         do {
             try midi.start(config: config.midi) { [weak self] routed in
                 DispatchQueue.main.async {
@@ -1395,6 +1408,20 @@ final class DeadAirModel: ObservableObject {
     }
 
     private func handle(_ routed: RoutedCommand) {
+        if let dropReason = externalCommandDropReason(for: routed) {
+            droppedEventCount += 1
+            lastCommand = "Ignored \(routed.source.rawValue): \(routed.command.displayName)"
+            log(
+                source: routed.source.rawValue,
+                message: "ignored external command",
+                raw: "\(dropReason): \(routed.rawSummary)",
+                command: routed.command.key,
+                pre: state,
+                post: state
+            )
+            return
+        }
+
         if !deduper.shouldAccept(routed.command, source: routed.source, at: routed.receivedAt) {
             droppedEventCount += 1
             return
@@ -1480,6 +1507,16 @@ final class DeadAirModel: ObservableObject {
             command: routed.command.key,
             pre: pre,
             post: state
+        )
+    }
+
+    private func externalCommandDropReason(for routed: RoutedCommand) -> String? {
+        ShowControlSafetyPolicy.dropReason(
+            for: routed.command,
+            source: routed.source,
+            showModeArmed: config.showModeArmed,
+            setupAssistantOpen: isSetupWizardPresented,
+            externalControlReadyAt: externalControlReadyAt
         )
     }
 
@@ -1906,21 +1943,10 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             HeaderView()
-            HStack(alignment: .top, spacing: 0) {
-                MainControlsView()
-                    .frame(minWidth: 390, maxWidth: 430)
-                LibraryView(isDropTargeted: $isDropTargeted)
-                    .frame(minWidth: 430)
-                if model.config.uiMode == .advanced {
-                    EventLogView()
-                        .frame(minWidth: 300, maxWidth: 350)
-                } else {
-                    SimpleShowPanel()
-                        .frame(minWidth: 300, maxWidth: 350)
-                }
+            GeometryReader { geometry in
+                showSurface(width: geometry.size.width)
             }
-            .padding(14)
-            .gaplessPanelStyle()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .stageGlassBackground()
         .preferredColorScheme(model.preferredColorScheme)
@@ -1939,7 +1965,7 @@ struct ContentView: View {
                 model.isSetupWizardPresented
             }, set: { model.isSetupWizardPresented = $0 }))
                 .environmentObject(model)
-                .frame(width: 920, height: 640)
+                .frame(minWidth: 480, idealWidth: 920, minHeight: 420, idealHeight: 640)
                 .preferredColorScheme(model.preferredColorScheme)
         }
         .sheet(isPresented: Binding(get: {
@@ -1947,7 +1973,7 @@ struct ContentView: View {
         }, set: { model.isHelpCenterPresented = $0 })) {
             HelpCenterView()
                 .environmentObject(model)
-                .frame(width: 760, height: 620)
+                .frame(minWidth: 460, idealWidth: 760, minHeight: 400, idealHeight: 620)
                 .preferredColorScheme(model.preferredColorScheme)
         }
         .toolbar {
@@ -1960,51 +1986,90 @@ struct ContentView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-
-                Button {
-                    model.openImportPanel()
-                } label: {
-                    Label("Import", systemImage: "square.and.arrow.down")
-                }
-                Button {
-                    model.savePlaylistInApp()
-                } label: {
-                    Label("Save Playlist", systemImage: "tray.and.arrow.down")
-                }
-                Button {
-                    model.copyCueMapToClipboard()
-                } label: {
-                    Label("Cue Map", systemImage: "doc.on.doc")
-                }
             }
 
             ToolbarItemGroup {
-                Button {
-                    model.presentSetupWizard()
+                Menu {
+                    Button {
+                        model.openImportPanel()
+                    } label: {
+                        Label("Import Audio", systemImage: "square.and.arrow.down")
+                    }
+                    Button {
+                        model.savePlaylistInApp()
+                    } label: {
+                        Label("Save Playlist", systemImage: "tray.and.arrow.down")
+                    }
+                    Button {
+                        model.copyCueMapToClipboard()
+                    } label: {
+                        Label("Copy Cue Map", systemImage: "doc.on.doc")
+                    }
+                    Divider()
+                    Button {
+                        model.presentSetupWizard()
+                    } label: {
+                        Label("Setup Assistant", systemImage: "wand.and.stars")
+                    }
+                    Button {
+                        model.presentHelpCenter()
+                    } label: {
+                        Label("Help", systemImage: "questionmark.circle")
+                    }
+                    Button {
+                        openSettings()
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    Button {
+                        closeMainWindowToMenuBar()
+                    } label: {
+                        Label("Keep in Menu Bar", systemImage: "menubar.rectangle")
+                    }
                 } label: {
-                    Label("New Setup", systemImage: "wand.and.stars")
+                    Label("Actions", systemImage: "ellipsis.circle")
                 }
-                Button {
-                    model.presentHelpCenter()
-                } label: {
-                    Label("Help", systemImage: "questionmark.circle")
-                }
-                Button {
-                    openSettings()
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                Button {
-                    closeMainWindowToMenuBar()
-                } label: {
-                    Label("Menu Bar", systemImage: "menubar.rectangle")
-                }
+
                 Button {
                     model.setShowModeArmed(!model.config.showModeArmed)
                 } label: {
                     Label(model.config.showModeArmed ? "Disarm Show" : "Arm Show", systemImage: model.config.showModeArmed ? "shield.slash" : "checkmark.shield")
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func showSurface(width: CGFloat) -> some View {
+        if width < 1_060 {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    MainControlsView()
+                    LibraryView(isDropTargeted: $isDropTargeted)
+                    sidePanel
+                }
+                .padding(14)
+            }
+        } else {
+            HStack(alignment: .top, spacing: 0) {
+                MainControlsView()
+                    .frame(minWidth: 360, idealWidth: 400, maxWidth: 420)
+                LibraryView(isDropTargeted: $isDropTargeted)
+                    .frame(minWidth: 360, maxWidth: .infinity)
+                sidePanel
+                    .frame(minWidth: 280, idealWidth: 320, maxWidth: 340)
+            }
+            .padding(14)
+            .gaplessPanelStyle()
+        }
+    }
+
+    @ViewBuilder
+    private var sidePanel: some View {
+        if model.config.uiMode == .advanced {
+            EventLogView()
+        } else {
+            SimpleShowPanel()
         }
     }
 
@@ -2045,13 +2110,13 @@ struct SimpleShowPanel: View {
             Button {
                 model.presentSetupWizard()
             } label: {
-                Label("New Setup", systemImage: "wand.and.stars")
+                Label("Setup Assistant", systemImage: "wand.and.stars")
                     .frame(maxWidth: .infinity)
             }
             Button {
                 model.saveDefaultSetup()
             } label: {
-                Label("Save Default", systemImage: "checkmark.seal")
+                Label("Save Current Setup", systemImage: "checkmark.seal")
                     .frame(maxWidth: .infinity)
             }
             Spacer()
@@ -2064,17 +2129,17 @@ private enum SetupWizardStep: String, CaseIterable, Identifiable {
     case preset
     case audio
     case files
-    case lightkey
+    case connectors
     case finish
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .preset: "Preset"
+        case .preset: "EZ Setup"
         case .audio: "Audio"
         case .files: "Files & Control"
-        case .lightkey: "Lighting"
+        case .connectors: "Connectors"
         case .finish: "Finish"
         }
     }
@@ -2084,8 +2149,86 @@ private enum SetupWizardStep: String, CaseIterable, Identifiable {
         case .preset: "wand.and.stars"
         case .audio: "speaker.wave.3"
         case .files: "folder.badge.gearshape"
-        case .lightkey: "lightbulb.2"
+        case .connectors: "cable.connector.horizontal"
         case .finish: "checkmark.seal"
+        }
+    }
+}
+
+private enum ConnectorSetupOption: String, CaseIterable, Identifiable {
+    case lightkey
+    case luminescence
+    case showOff
+    case customOSC
+    case midiFallback
+    case inboundControl
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .lightkey: "Lightkey"
+        case .luminescence: "Luminescence"
+        case .showOff: "Show Off"
+        case .customOSC: "Custom OSC"
+        case .midiFallback: "MIDI Fallback"
+        case .inboundControl: "MIDI / OSC In"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .lightkey: "sparkles"
+        case .luminescence: "lightbulb.led"
+        case .showOff: "rectangle.connected.to.line.below"
+        case .customOSC: "network"
+        case .midiFallback: "pianokeys"
+        case .inboundControl: "dot.radiowaves.left.and.right"
+        }
+    }
+
+    var provider: LightingProvider? {
+        switch self {
+        case .lightkey: .lightkeyOSC
+        case .luminescence: .luminescenceOSC
+        case .showOff: .showOffOSC
+        case .customOSC: .customOSC
+        case .midiFallback: .midi
+        case .inboundControl: nil
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .lightkey:
+            "Page, frame, and cue actions over OSC."
+        case .luminescence:
+            "Cue-name triggers over OSC."
+        case .showOff:
+            "Stage-safe local notifications."
+        case .customOSC:
+            "Raw OSC paths to any receiver."
+        case .midiFallback:
+            "Outbound notes or control changes."
+        case .inboundControl:
+            "MIDI/OSC commands into Dead Air."
+        }
+    }
+
+    func detail(config: AppConfig) -> String {
+        switch self {
+        case .lightkey:
+            "Enable Lightkey External Control, keep OSC on 127.0.0.1:21600, then test /live/Live/cue/Transition/activate."
+        case .luminescence:
+            "Start Luminescence's OSC listener on 127.0.0.1:9001. Dead Air sends /luminescence/cue plus the cue name."
+        case .showOff:
+            "Run Show Off locally on 127.0.0.1:39051. Dead Air uses /notify/cue and /notify/critical for stage-safe notices."
+        case .customOSC:
+            "Set the receiver host and port, paste the exact OSC path, and send one test cue before rehearsal."
+        case .midiFallback:
+            "Choose a MIDI destination, channel \(config.lighting.midiChannel), and velocity \(config.lighting.midiVelocity). Use this when OSC is not available."
+        case .inboundControl:
+            "Dead Air listens to \(config.midi.virtualDestinationName), optional IAC sources, and OSC on \(config.osc.host):\(config.osc.port)."
         }
     }
 }
@@ -2099,6 +2242,29 @@ struct SetupWizardView: View {
     @State private var step: SetupWizardStep = .preset
 
     var body: some View {
+        GeometryReader { geometry in
+            if geometry.size.width < 720 {
+                compactWizardLayout
+            } else {
+                regularWizardLayout
+            }
+        }
+        .background {
+            RoundedRectangle(cornerRadius: 18)
+                .fill(.regularMaterial)
+        }
+        .onAppear {
+            preset = model.config.setupPreset
+            profileName = model.activeProfile?.name ?? model.config.setupPreset.profileName
+            model.refreshMIDIEndpoints()
+            model.refreshDevices()
+            if !model.config.hasCompletedOnboarding {
+                model.applySetupPreset(preset)
+            }
+        }
+    }
+
+    private var regularWizardLayout: some View {
         HStack(spacing: 0) {
             wizardRail
                 .frame(width: 235)
@@ -2125,17 +2291,69 @@ struct SetupWizardView: View {
                     .background(.regularMaterial)
             }
         }
-        .background {
-            RoundedRectangle(cornerRadius: 18)
-                .fill(.regularMaterial)
+    }
+
+    private var compactWizardLayout: some View {
+        VStack(spacing: 0) {
+            compactWizardHeader
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+                .background(.regularMaterial)
+
+            Divider()
+
+            ScrollView {
+                stepContent
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+
+            Divider()
+            wizardFooter
+                .padding(12)
+                .background(.regularMaterial)
         }
-        .onAppear {
-            preset = model.config.setupPreset
-            profileName = model.activeProfile?.name ?? model.config.setupPreset.profileName
-            model.refreshMIDIEndpoints()
-            model.refreshDevices()
-            if !model.config.hasCompletedOnboarding {
-                model.applySetupPreset(preset)
+    }
+
+    private var compactWizardHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                LogoMarkView(size: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Dead Air Setup")
+                        .font(.headline)
+                    Text("\(currentStepIndex + 1) of \(SetupWizardStep.allCases.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Picker("Step", selection: $step) {
+                    ForEach(SetupWizardStep.allCases) { item in
+                        Label(item.title, systemImage: item.systemImage).tag(item)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 180)
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    Text(step.title)
+                        .font(.title2.bold())
+                    Text(headerSubtitle)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(step.title)
+                        .font(.title2.bold())
+                    Text(headerSubtitle)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -2153,7 +2371,7 @@ struct SetupWizardView: View {
                 }
             }
 
-            Text("A show-ready setup in five steps.")
+            Text("EZ Setup walks through audio, control, connectors, and final show checks.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -2219,8 +2437,8 @@ struct SetupWizardView: View {
             audioStep
         case .files:
             filesStep
-        case .lightkey:
-            lightkeyStep
+        case .connectors:
+            connectorsStep
         case .finish:
             finishStep
         }
@@ -2228,7 +2446,13 @@ struct SetupWizardView: View {
 
     private var presetStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            WizardInsightRow(
+                title: "Start here",
+                detail: "Choose the closest rig. The next screens make every important choice visible, so you can adjust audio, inbound control, and connector behavior before saving.",
+                systemImage: "checklist.checked"
+            )
+
+            LazyVGrid(columns: adaptivePresetColumns, spacing: 12) {
                 ForEach(ShowSetupPreset.allCases) { option in
                     WizardPresetCard(
                         preset: option,
@@ -2243,7 +2467,7 @@ struct SetupWizardView: View {
             }
 
             WizardInsightRow(
-                title: "Selected",
+                title: "Selected setup",
                 detail: preset.helpText,
                 systemImage: preset.systemIcon
             )
@@ -2308,6 +2532,15 @@ struct SetupWizardView: View {
             }
 
             WizardControlCard(title: "MIDI Source") {
+                Picker("Input Mode", selection: Binding(get: {
+                    model.config.midi.mode
+                }, set: { model.setMIDIMode($0) })) {
+                    Text("Virtual").tag(MIDIConfig.Mode.virtualDestination)
+                    Text("IAC").tag(MIDIConfig.Mode.iacSource)
+                    Text("Both").tag(MIDIConfig.Mode.both)
+                }
+                .pickerStyle(.segmented)
+
                 Picker("Input", selection: Binding(get: {
                     model.config.midi.iacSourceUniqueID ?? 0
                 }, set: { id in
@@ -2324,18 +2557,52 @@ struct SetupWizardView: View {
                     .lineLimit(2)
             }
 
+            WizardControlCard(title: "OSC Control") {
+                Toggle("Enable inbound OSC", isOn: Binding(get: {
+                    model.config.osc.enabled
+                }, set: { model.setOSCEnabled($0) }))
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        Text("Dead Air listens on \(model.config.osc.host)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Stepper("Port \(model.config.osc.port)", value: Binding(get: {
+                            model.config.osc.port
+                        }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
+                        Button("Retry") {
+                            model.retryOSC()
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Dead Air listens on \(model.config.osc.host)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Stepper("Port \(model.config.osc.port)", value: Binding(get: {
+                            model.config.osc.port
+                        }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
+                        Button("Retry") {
+                            model.retryOSC()
+                        }
+                    }
+                }
+                Text("Use OSC for QLab, companion show-control systems, or custom local automation. MIDI and OSC trigger the same live commands.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             WizardInsightRow(
-                title: "Current input",
-                detail: model.config.midi.iacSourceName ?? model.config.midi.virtualDestinationName,
+                title: "Current control",
+                detail: "\(model.config.midi.iacSourceName ?? model.config.midi.virtualDestinationName) | OSC \(model.config.osc.enabled ? "on" : "off")",
                 systemImage: "dot.radiowaves.left.and.right"
             )
         }
     }
 
-    private var lightkeyStep: some View {
+    private var connectorsStep: some View {
         VStack(alignment: .leading, spacing: 16) {
-            WizardControlCard(title: "Lighting Control") {
-                Toggle("Enable lighting cues", isOn: Binding(get: {
+            WizardControlCard(title: "Connector Target") {
+                Toggle("Enable outbound show cues", isOn: Binding(get: {
                     model.config.lighting.enabled
                 }, set: { model.setLightingEnabled($0) }))
                 Picker("Connector", selection: Binding(get: {
@@ -2346,40 +2613,99 @@ struct SetupWizardView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                HStack {
-                    TextField("Host", text: Binding(get: {
-                        model.config.lighting.lightkeyHost
-                    }, set: { model.setLightkeyHost($0) }))
-                    .textFieldStyle(.roundedBorder)
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        TextField("Host", text: Binding(get: {
+                            model.config.lighting.lightkeyHost
+                        }, set: { model.setLightkeyHost($0) }))
+                        .textFieldStyle(.roundedBorder)
 
-                    Stepper("Port \(model.config.lighting.lightkeyPort)", value: Binding(get: {
-                        model.config.lighting.lightkeyPort
-                    }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
+                        Stepper("Port \(model.config.lighting.lightkeyPort)", value: Binding(get: {
+                            model.config.lighting.lightkeyPort
+                        }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("Host", text: Binding(get: {
+                            model.config.lighting.lightkeyHost
+                        }, set: { model.setLightkeyHost($0) }))
+                        .textFieldStyle(.roundedBorder)
+
+                        Stepper("Port \(model.config.lighting.lightkeyPort)", value: Binding(get: {
+                            model.config.lighting.lightkeyPort
+                        }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
+                    }
+                }
+                Text("The selected connector sets safe defaults. You can still override host, port, and cue addresses for venue-specific rigs.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            LazyVGrid(columns: adaptiveConnectorColumns, spacing: 12) {
+                ForEach(ConnectorSetupOption.allCases) { option in
+                    ConnectorSetupCard(
+                        option: option,
+                        isSelected: option.provider == model.config.lighting.defaultProvider,
+                        detail: option.detail(config: model.config)
+                    ) {
+                        if let provider = option.provider {
+                            model.setLightingEnabled(true)
+                            model.setLightingDefaultProvider(provider)
+                        } else {
+                            model.setOSCEnabled(true)
+                        }
+                    }
                 }
             }
 
-            HStack(spacing: 12) {
-                Button {
-                    model.testLightingCue()
-                } label: {
-                    Label("Send Test Cue", systemImage: "paperplane.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
+            WizardInsightRow(
+                title: selectedConnectorGuideTitle,
+                detail: selectedConnectorGuideDetail,
+                systemImage: selectedConnectorGuideIcon
+            )
 
-                Button {
-                    model.copyLightkeySetupNotesToClipboard()
-                } label: {
-                    Label("Copy Notes", systemImage: "doc.on.doc")
-                        .frame(maxWidth: .infinity)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    connectorTestButton
+                    connectorNotesButton
+                }
+                VStack(spacing: 8) {
+                    connectorTestButton
+                    connectorNotesButton
                 }
             }
 
             WizardReadinessStrip(
-                title: model.lightingStatusValue,
-                detail: model.lastLightingEventSummary,
+                title: connectorReadinessTitle,
+                detail: connectorReadinessDetail,
                 isReady: model.config.lighting.enabled ? model.config.lighting.validationWarnings(for: model.activeBed?.lightingCues ?? []).isEmpty : true
             )
+        }
+    }
+
+    private var adaptivePresetColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 190), spacing: 12)]
+    }
+
+    private var adaptiveConnectorColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 145), spacing: 12)]
+    }
+
+    private var connectorTestButton: some View {
+        Button {
+            model.testLightingCue()
+        } label: {
+            Label("Send Test Cue", systemImage: "paperplane.fill")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+    }
+
+    private var connectorNotesButton: some View {
+        Button {
+            model.copyLightkeySetupNotesToClipboard()
+        } label: {
+            Label("Copy Connector Notes", systemImage: "doc.on.doc")
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -2388,7 +2714,7 @@ struct SetupWizardView: View {
             WizardControlCard(title: "Save Setup") {
                 TextField("Profile Name", text: $profileName)
                     .textFieldStyle(.roundedBorder)
-                Toggle("Close to menu bar after setup", isOn: $closeToMenuBar)
+                Toggle("Close main window to menu bar after setup", isOn: $closeToMenuBar)
             }
 
             ReadinessPanel()
@@ -2409,7 +2735,7 @@ struct SetupWizardView: View {
             }
             .disabled(currentStepIndex == 0)
 
-            Button(currentStepIndex == SetupWizardStep.allCases.count - 1 ? "Save Default Setup" : "Continue") {
+            Button(currentStepIndex == SetupWizardStep.allCases.count - 1 ? "Save Setup" : "Continue") {
                 if currentStepIndex == SetupWizardStep.allCases.count - 1 {
                     model.completeOnboarding(profileName: profileName, closeToMenuBar: closeToMenuBar)
                     isPresented = false
@@ -2424,12 +2750,42 @@ struct SetupWizardView: View {
 
     private var headerSubtitle: String {
         switch step {
-        case .preset: "Start from the rig that matches the show."
+        case .preset: "Choose the closest rig, then confirm every connector."
         case .audio: "Choose the output Dead Air should own."
-        case .files: "Pick file behavior and the control source."
-        case .lightkey: "Connect Lightkey or any OSC/MIDI lighting app."
+        case .files: "Pick file behavior and inbound control."
+        case .connectors: "Walk through Lightkey, Luminescence, Show Off, Custom OSC, and MIDI."
         case .finish: "Name it, verify it, save it."
         }
+    }
+
+    private var connectorReadinessTitle: String {
+        guard model.config.lighting.enabled else { return "Outbound cues are off" }
+        return "\(model.config.lighting.defaultProvider.displayName) ready to test"
+    }
+
+    private var connectorReadinessDetail: String {
+        guard model.config.lighting.enabled else {
+            return "Manual-only setups can leave outbound cues disabled. Inbound MIDI and OSC still work from Files & Control."
+        }
+        return "\(model.config.lighting.lightkeyHost):\(model.config.lighting.lightkeyPort) | \(model.lastLightingEventSummary)"
+    }
+
+    private var selectedConnectorOption: ConnectorSetupOption {
+        ConnectorSetupOption.allCases.first { $0.provider == model.config.lighting.defaultProvider } ?? .inboundControl
+    }
+
+    private var selectedConnectorGuideTitle: String {
+        model.config.lighting.enabled ? "\(selectedConnectorOption.title) setup" : "Inbound control setup"
+    }
+
+    private var selectedConnectorGuideDetail: String {
+        model.config.lighting.enabled
+            ? selectedConnectorOption.detail(config: model.config)
+            : ConnectorSetupOption.inboundControl.detail(config: model.config)
+    }
+
+    private var selectedConnectorGuideIcon: String {
+        model.config.lighting.enabled ? selectedConnectorOption.systemImage : ConnectorSetupOption.inboundControl.systemImage
     }
 
     private var currentStepIndex: Int {
@@ -2523,6 +2879,50 @@ private struct WizardControlCard<Content: View>: View {
     }
 }
 
+private struct ConnectorSetupCard: View {
+    let option: ConnectorSetupOption
+    let isSelected: Bool
+    let detail: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: option.systemImage)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    Spacer()
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+
+                Text(option.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Text(option.summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(14)
+            .frame(minHeight: 112, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(isSelected ? Color.accentColor.opacity(0.08) : Color(nsColor: .controlBackgroundColor).opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? Color.accentColor.opacity(0.50) : Color.secondary.opacity(0.12), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(detail)
+    }
+}
+
 private struct WizardInsightRow: View {
     let title: String
     let detail: String
@@ -2604,12 +3004,12 @@ struct HelpCenterView: View {
     @State private var query = ""
 
     private let topics: [(title: String, body: String)] = [
-        ("Quick Start", "Import audio, choose the output, arm Show Mode, then use Fade In and Fade Out. Save Default when the playlist and route are correct."),
+        ("Quick Start", "Run Setup Assistant, import audio, choose the output, arm Show Mode, then use Fade In and Fade Out. Save the setup when the playlist and route are correct."),
         ("Reference vs Copy", "Reference keeps files where they are and stores a sandbox bookmark. Copy duplicates files into Dead Air's managed library for travel-safe shows."),
         ("MIDI Learn", "Open Settings, MIDI and OSC, then press Learn for a command and send the note or CC from Ableton, a controller, IAC, or another DAW."),
-        ("Lighting OSC", "Lightkey is the default preset, but Custom OSC can send raw addresses to QLC+, MagicQ, QLab, grandMA, or any app that accepts UDP OSC. Dead Air logs packet sent, not external confirmation."),
-        ("Menu Bar Mode", "Close to Menu Bar hides the main window while keeping Dead Air running, audio-ready, and controllable from the menu bar."),
-        ("Preflight", "Preflight checks output, sample rate, playlist, control inputs, show mode, and lighting cue validity before a set."),
+        ("Connector Setup", "Setup Assistant walks through Lightkey, Luminescence, Show Off, Custom OSC, MIDI fallback, and inbound MIDI/OSC control. Dead Air logs packet sent, not external confirmation."),
+        ("Menu Bar Mode", "Keep in Menu Bar hides the main window while keeping Dead Air running, audio-ready, and controllable from the menu bar."),
+        ("Preflight", "Preflight checks output, sample rate, playlist, control inputs, show mode, and connector cue validity before a set."),
         ("Recovery", "If the audio device changes while audible, Dead Air rebuilds muted and warns you so the show output does not jump unexpectedly.")
     ]
 
@@ -2670,6 +3070,17 @@ struct HeaderView: View {
     @EnvironmentObject private var model: DeadAirModel
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            headerContent(showAllStatus: true)
+            headerContent(showAllStatus: false)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
+        .glassHeader()
+    }
+
+    private func headerContent(showAllStatus: Bool) -> some View {
         HStack(spacing: 16) {
             LogoMarkView(size: 34)
             VStack(alignment: .leading, spacing: 4) {
@@ -2693,15 +3104,15 @@ struct HeaderView: View {
             Spacer()
 
             StatusPill(title: "State", value: model.state.displayName, tone: stateTone, help: "Current playback state. Degraded means the app stayed alive but needs attention.")
-            StatusPill(title: "MIDI", value: model.midiOnline ? "Online" : "Offline", tone: model.midiOnline ? .good : .bad, help: "Shows whether Dead Air is listening for MIDI on its virtual input or selected IAC sources.")
-            StatusPill(title: "OSC", value: model.oscOnline ? "On" : "Off", tone: model.oscOnline ? .good : .neutral, help: "Shows whether localhost OSC is listening on the configured port.")
-            StatusPill(title: "Lighting", value: model.lightingStatusValue, tone: model.lightingStatusTone, help: "Outbound Lightkey/MIDI cue status. Lighting failures are logged and do not stop audio.")
-            StatusPill(title: "Heartbeat", value: model.heartbeatStatus, tone: model.heartbeatStatus == "Lost" ? .bad : .neutral, help: "Optional AbleSet supervision signal. If it stops, Dead Air can react based on the heartbeat policy.")
+            if showAllStatus {
+                StatusPill(title: "MIDI", value: model.midiOnline ? "Online" : "Offline", tone: model.midiOnline ? .good : .bad, help: "Shows whether Dead Air is listening for MIDI on its virtual input or selected IAC sources.")
+                StatusPill(title: "OSC", value: model.oscOnline ? "On" : "Off", tone: model.oscOnline ? .good : .neutral, help: "Shows whether localhost OSC is listening on the configured port.")
+                StatusPill(title: "Connectors", value: model.lightingStatusValue, tone: model.lightingStatusTone, help: "Outbound Lightkey, Luminescence, Show Off, Custom OSC, or MIDI cue status. Connector failures are logged and do not stop audio.")
+                StatusPill(title: "Heartbeat", value: model.heartbeatStatus, tone: model.heartbeatStatus == "Lost" ? .bad : .neutral, help: "Optional AbleSet supervision signal. If it stops, Dead Air can react based on the heartbeat policy.")
+            } else {
+                StatusPill(title: "Control", value: model.controlSummary, tone: model.midiOnline || model.oscOnline ? .good : .bad, help: "Current MIDI and OSC ingress state.")
+            }
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
-        .glassHeader()
     }
 
     private var stateTone: StatusPill.Tone {
@@ -2927,7 +3338,7 @@ struct DeadAirSettingsWindow: View {
                 }
             LightingSettingsTab()
                 .tabItem {
-                    Label("Lighting", systemImage: "lightbulb.2")
+                    Label("Connectors", systemImage: "cable.connector.horizontal")
                 }
             LibrarySettingsTab()
                 .tabItem {
@@ -3034,8 +3445,8 @@ struct LightingSettingsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                SettingsCard(title: "Lighting / Show Cues", systemImage: "lightbulb.2", help: "Outbound show-control cues for Lightkey, custom OSC receivers, or MIDI devices. Audio keeps running if a lighting cue fails.") {
-                    Toggle("Enable Lighting Cues", isOn: Binding(get: {
+                SettingsCard(title: "Connectors / Show Cues", systemImage: "cable.connector.horizontal", help: "Outbound show-control cues for Lightkey, Luminescence, Show Off, Custom OSC receivers, or MIDI devices. Audio keeps running if a connector fails.") {
+                    Toggle("Enable Outbound Show Cues", isOn: Binding(get: {
                         model.config.lighting.enabled
                     }, set: { model.setLightingEnabled($0) }))
 
@@ -3093,7 +3504,7 @@ struct LightingSettingsTab: View {
                         Button {
                             model.copyLightkeySetupNotesToClipboard()
                         } label: {
-                            Label("Copy Setup Notes", systemImage: "doc.on.doc")
+                            Label("Copy Connector Notes", systemImage: "doc.on.doc")
                         }
                         Button {
                             model.copyLightingCueMapToClipboard()
@@ -3448,7 +3859,7 @@ struct DiagnosticsSettingsTab: View {
                         Button("Reveal Logs") {
                             NSWorkspace.shared.activateFileViewerSelecting([logsDirectory])
                         }
-                        Button("Export Support Bundle") {
+                        Button("Export Redacted Support Bundle") {
                             model.exportSupportBundle()
                         }
                     }
@@ -4365,10 +4776,10 @@ struct ReadinessPanel: View {
                 Button {
                     model.testLightingCue()
                 } label: {
-                    Label("Test Lighting", systemImage: "paperplane")
+                    Label("Test Connector", systemImage: "paperplane")
                         .frame(maxWidth: .infinity)
                 }
-                .help("Sends the first enabled lighting cue or a sample OSC cue.")
+                .help("Sends the first enabled outbound cue or a sample OSC/MIDI cue.")
 
                 Button {
                     model.exportSupportBundle()
@@ -4376,7 +4787,7 @@ struct ReadinessPanel: View {
                     Label("Support", systemImage: "shippingbox")
                         .frame(maxWidth: .infinity)
                 }
-                .help("Exports config, readiness, logs, audio devices, and lighting cue state for troubleshooting.")
+                .help("Exports redacted config, readiness, logs, audio devices, and connector state for troubleshooting.")
             }
         }
     }
@@ -4448,29 +4859,27 @@ struct ControlButton: View {
                 VStack(spacing: 10) {
                     Image(systemName: systemImage)
                         .font(.system(size: 31, weight: .bold))
+                        .foregroundStyle(tint)
                     Text(title)
                         .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.primary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 112)
 
                 HelpIcon(help)
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(.secondary)
                     .padding(10)
             }
-            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
             .background(
-                LinearGradient(
-                    colors: [tint.opacity(0.92), tint.opacity(0.68)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
+                tint.opacity(title == "Panic Mute" ? 0.16 : 0.10),
                 in: RoundedRectangle(cornerRadius: 8)
             )
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(.white.opacity(0.24), lineWidth: 1)
+                    .stroke(tint.opacity(title == "Panic Mute" ? 0.42 : 0.22), lineWidth: title == "Panic Mute" ? 1.25 : 1)
             )
-            .shadow(color: tint.opacity(0.10), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
         .help(help)
@@ -4626,9 +5035,9 @@ struct StageGlassBackgroundView: View {
             )
             LinearGradient(
                 colors: [
-                    StagePalette.fadeOut.opacity(colorScheme == .dark ? 0.06 : 0.08),
+                    StagePalette.fadeOut.opacity(colorScheme == .dark ? 0.025 : 0.035),
                     .clear,
-                    StagePalette.fadeIn.opacity(colorScheme == .dark ? 0.05 : 0.09)
+                    StagePalette.fadeIn.opacity(colorScheme == .dark ? 0.02 : 0.035)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -4639,13 +5048,13 @@ struct StageGlassBackgroundView: View {
     private var baseColors: [Color] {
         if colorScheme == .dark {
             return [
-                Color(nsColor: .controlBackgroundColor).opacity(0.72),
-                Color(red: 0.02, green: 0.05, blue: 0.055).opacity(0.92)
+                Color(nsColor: .windowBackgroundColor).opacity(0.96),
+                Color(nsColor: .controlBackgroundColor).opacity(0.82)
             ]
         }
         return [
-            Color(nsColor: .windowBackgroundColor).opacity(0.92),
-            Color(red: 0.90, green: 0.95, blue: 0.96).opacity(0.78)
+            Color(nsColor: .windowBackgroundColor).opacity(0.98),
+            Color(nsColor: .controlBackgroundColor).opacity(0.70)
         ]
     }
 }
@@ -4663,59 +5072,29 @@ extension View {
             .background(.regularMaterial)
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(.white.opacity(0.06))
+                    .fill(Color.secondary.opacity(0.12))
                     .frame(height: 1)
-            }
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.white.opacity(0.13), .clear],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(height: 34)
-                    .allowsHitTesting(false)
             }
     }
 
     func liquidGlassPanel() -> some View {
         self
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.16), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        LinearGradient(
-                            colors: [.white.opacity(0.11), .white.opacity(0.025), .clear],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .allowsHitTesting(false)
-            }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(
-                        LinearGradient(
-                            colors: [.white.opacity(0.18), .white.opacity(0.04)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 6)
+            .shadow(color: .black.opacity(0.07), radius: 8, x: 0, y: 3)
     }
 
     func liquidGlassTile() -> some View {
         self
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.secondary.opacity(0.10), lineWidth: 1)
             )
     }
 

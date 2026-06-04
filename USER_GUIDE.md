@@ -7,7 +7,7 @@ Dead Air is a live-show transition bed player. It stays open outside Ableton Liv
 ## First Setup
 
 1. Open `Dead Air.app`.
-2. Use the five-step first-run setup wizard.
+2. Use Setup Assistant.
 3. Choose the preset closest to the current rig.
 4. Choose the output device and output channel pair.
 5. Open Dead Air Settings and create or select a Show Profile for the venue/system.
@@ -18,15 +18,15 @@ Dead Air is a live-show transition bed player. It stays open outside Ableton Liv
 8. Set Fade In, Fade Out, and Live Crossfade times.
 9. Choose Bed Mode.
 10. Fill in BPM, key, artist, tags, notes, and cue references for tracks where that helps show prep.
-11. Enable Lighting Cues if Dead Air should trigger Lightkey/show-control scenes.
+11. Use the Connectors step if Dead Air should trigger Lightkey, Luminescence, Show Off, Custom OSC, or MIDI show cues.
 12. Map MIDI if the defaults are not what your Ableton/AbleSet show uses.
-13. Save Default Setup, then press Show Mode before a real rehearsal/show.
+13. Save Setup, then arm Show Mode before a real rehearsal/show.
 
-The macOS toolbar contains the common setup and show actions: Import, Save Playlist, Cue Map, Settings, Menu Bar, and Show Mode.
+The macOS toolbar contains the common setup and show actions: Import, Save Playlist, Cue Map, Setup Assistant, Help, Settings, Keep in Menu Bar, and Show Mode.
 
 ## Help Icons
 
-The help icons open on hover and are also clickable. Use the Help button or Help menu for the searchable Help Center.
+The help icons use standard macOS help text and can be clicked for longer context. Use the Help button or Help menu for the searchable Help Center.
 
 ## Simple and Advanced Modes
 
@@ -38,9 +38,11 @@ Appearance defaults to the macOS system setting. Use `Show Dark` for low-light l
 
 ## Menu Bar Mode
 
-Dead Air keeps running when the main window is closed. Use `Close to Menu Bar` from the Show menu or the `Menu Bar` button in the header after programming the show.
+Dead Air keeps running when the main window is closed. Use `Close Main Window to Menu Bar` from the Show menu or the `Keep in Menu Bar` toolbar button after programming the show.
 
 From the macOS menu bar, you can fade in, fade out, advance to the next bed, panic mute, arm/disarm Show Mode, reopen Dead Air, open Settings, or quit the app. This is the intended set-and-forget mode for rehearsals and shows after the playlist, profile, and MIDI/OSC map are ready.
+
+Dead Air always opens Show Mode disarmed. External MIDI/OSC fade-in, next-bed, and level commands are ignored until Show Mode is armed, while panic mute, fade out, and disarm remain available as protective commands.
 
 ## Import Modes
 
@@ -75,7 +77,7 @@ Use the macOS Settings window for deeper setup:
 - `Audio`: output device, stereo pair, sample rate, target level, and routing.
 - `Playback`: fade/crossfade defaults and bed advance behavior.
 - `MIDI/OSC`: MIDI Learn, manual MIDI mapping, OSC enable state, and cue-map copy.
-- `Lighting`: Lightkey OSC, Custom OSC, outbound MIDI fallback, global show cues, and test-cue controls.
+- `Connectors`: Lightkey, Luminescence, Show Off, Custom OSC, outbound MIDI fallback, global show cues, and test-cue controls.
 - `Library`: import mode, playlist save/load, and metadata guidance.
 - `Profiles`: save, apply, duplicate, rename, and delete Show Profiles.
 - `Diagnostics`: readiness, logs, last MIDI event, and dropped-event count.
@@ -101,9 +103,9 @@ Hardware I/O buffer size is handled by macOS/Core Audio and your audio interface
 
 Very long audio files may be refused if they exceed the predecode safety limit. That warning is intentional: it keeps the app from risking show-time memory pressure. For unusually long material, split the file or use a shorter transition bed.
 
-## Lighting and Show Cues
+## Connectors And Show Cues
 
-Dead Air can send lighting cues while it keeps transition audio playing. The main intended workflow is for Dead Air to activate a transition scene when a bed starts, then deactivate or change that scene when the fade-out or crossfade completes. Lightkey is the easiest built-in preset, but Custom OSC and MIDI make the cue system usable with other DMX/show-control apps.
+Dead Air can send show cues while it keeps transition audio playing. The main intended workflow is for Dead Air to activate a transition scene or stage notification when a bed starts, then deactivate or change that scene when the fade-out or crossfade completes. Setup Assistant walks through Lightkey, Luminescence, Show Off, Custom OSC, MIDI fallback, and inbound MIDI/OSC control.
 
 ### Lightkey OSC Setup
 
@@ -111,8 +113,8 @@ Dead Air can send lighting cues while it keeps transition audio playing. The mai
 2. Go to Settings > External Control.
 3. Enable OSC.
 4. Use `127.0.0.1` and port `21600`.
-5. In Dead Air, open Settings > Lighting.
-6. Enable Lighting Cues.
+5. In Dead Air, open Settings > Connectors.
+6. Enable Outbound Show Cues.
 7. Add a global cue or a track cue.
 8. Press Send Test Cue and confirm it appears in Lightkey's External Control Log.
 
@@ -122,11 +124,29 @@ Example generated address:
 
 `/live/Live/cue/Transition/activate`
 
+### Luminescence OSC Setup
+
+1. Start Luminescence's OSC listener.
+2. Use `127.0.0.1` and port `9001`.
+3. In Dead Air, open Settings > Connectors.
+4. Choose `Luminescence OSC`.
+5. Set the cue name to the matching Luminescence cue.
+6. Press Send Test Cue and confirm Luminescence receives `/luminescence/cue`.
+
+### Show Off OSC Setup
+
+1. Run Show Off locally.
+2. Confirm its OSC server is listening on `127.0.0.1:39051`.
+3. In Dead Air, open Settings > Connectors.
+4. Choose `Show Off OSC`.
+5. Use the default `/notify/cue` path for stage-safe notices.
+6. Keep tokened HTTP write actions inside Show Off's own trusted workflow.
+
 ### Custom OSC Setup
 
 1. In the target lighting app, enable OSC input.
 2. Note its receive host and port.
-3. In Dead Air, open Settings > Lighting.
+3. In Dead Air, open Settings > Connectors.
 4. Choose `Custom OSC`.
 5. Enter the host and port.
 6. Paste the exact OSC address expected by the lighting app.
@@ -146,7 +166,7 @@ Track cues live in the Track Inspector and fire only for that selected bed. Use 
 
 Dead Air can also send outbound MIDI to a destination name such as `Lightkey Input`. The default channel is 1. Avoid channel 16 unless you specifically intend to use Lightkey Live Triggers.
 
-Lighting failures are diagnostics-only. Dead Air does not stop or block audio if the lighting app is closed, the MIDI destination is missing, or a cue path is wrong.
+Connector failures are diagnostics-only. Dead Air does not stop or block audio if the receiving app is closed, the MIDI destination is missing, or a cue path is wrong.
 
 ## Bed Modes
 
@@ -188,8 +208,8 @@ OSC listens on `127.0.0.1:38101`.
 2. Confirm the output device and pair.
 3. Confirm the active bed.
 4. Confirm MIDI or OSC is online.
-5. If using Lightkey, send a test lighting cue and confirm it in Lightkey.
+5. Send a test connector cue and confirm it in the receiving app.
 6. Test Fade In, Fade Out, Next Bed, Crossfade, and Panic.
 7. Save the active Show Profile and Save Default once the setup is correct.
-8. Close to Menu Bar and verify the menu bar controls still work.
-9. Run a full rehearsal with the actual Ableton/AbleSet and Lightkey files.
+8. Use Keep in Menu Bar and verify the menu bar controls still work.
+9. Run a full rehearsal with the actual Ableton/AbleSet and connector targets.

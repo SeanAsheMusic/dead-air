@@ -8,7 +8,7 @@ For fast setup, see [QUICKSTART.md](QUICKSTART.md). For operator instructions, s
 
 - Company and bundle identity aligned to Undeniable Spectacle: `com.undeniablespectacle.deadair`
 - Version reads from the app bundle: `4.0.0` build `4`
-- First-run and New Setup wizard with guided pro defaults
+- First-run Setup Assistant with EZ Setup presets, audio routing, file behavior, inbound control, connector walkthroughs, and final readiness checks
 - Built-in setup presets for Ableton/AbleSet + Lightkey, Ableton/AbleSet + Luminescence, Show Off bridge, generic DAW MIDI, IAC legacy rigs, DJ manual operation, QLab OSC, and reference-file workflows
 - Simple/Advanced UI modes plus System, Show Dark, Light, and Dark appearance modes
 - Searchable built-in Help Center and macOS Help menu entry
@@ -63,17 +63,19 @@ For fast setup, see [QUICKSTART.md](QUICKSTART.md). For operator instructions, s
 - Diagnostics and preflight controls are available from both the main window and Settings
 - Main window can be closed to the macOS menu bar for set-and-forget show operation
 - Menu bar controls can fade in, fade out, advance, panic mute, arm Show Mode, reopen the main window, or open Settings
-- More glass-like low-light interface treatment across the main window and Settings
-- Native macOS toolbar actions for Import, Save Playlist, Cue Map, Settings, Menu Bar, and Show Mode
+- Dead Air opens Show Mode disarmed and blocks external fade-in, next-bed, and level commands until the operator arms Show Mode
+- More native macOS interface treatment across the main window, Setup Assistant, and Settings
+- Native macOS toolbar actions for Import, Save Playlist, Cue Map, Setup Assistant, Help, Settings, Keep in Menu Bar, and Show Mode
 - Current Bed panel for fast operator confirmation before showtime
 
-## V4 Show Cue / Lighting Additions
+## V4 Show Cue / Connector Additions
 
 - Outbound show-control cues so Dead Air can trigger lighting while Ableton/AbleSet loads the next session
 - Lightkey OSC target defaults to `127.0.0.1:21600`
 - Luminescence OSC connector defaults to `127.0.0.1:9001` with `/luminescence/cue` and a cue-name argument
 - Show Off OSC connector defaults to `127.0.0.1:39051` with safe `/notify/*` messages for stage/operator devices
 - Custom OSC provider for QLC+, MagicQ, QLab, grandMA, and other show-control/DMX apps that accept UDP OSC
+- EZ Setup connector walkthrough for Lightkey, Luminescence, Show Off, Custom OSC, MIDI fallback, and inbound MIDI/OSC-only rigs
 - Global show cues for show mode, bed priming, fade in/out, next bed, crossfade, panic, heartbeat loss, and app quit
 - Per-track lighting cues in the Track Inspector for bed-specific looks or transition scenes
 - Lightkey-safe OSC path generation such as `/live/Live/cue/Transition/activate`
@@ -147,11 +149,11 @@ That writes `dist-sandbox/Dead Air.app`.
 
 The map is editable in the app under **Show Settings -> MIDI Map**. Click **Learn** beside any action, then send the MIDI event from Ableton, a controller, IAC, or another MIDI source. The learned mapping is saved automatically.
 
-## Lighting / Show Cue Workflow
+## Connector / Show Cue Workflow
 
 1. In Lightkey, open Settings > External Control and enable OSC.
 2. Keep Lightkey listening on `127.0.0.1:21600`.
-3. In Dead Air, open Settings > Lighting and enable Lighting Cues.
+3. In Dead Air, run Setup Assistant > Connectors or open Settings > Connectors and enable Outbound Show Cues.
 4. Add global cues for common events such as Fade In Started, Fade Out Completed, Crossfade Started, or Panic Muted.
 5. Add per-track cues in the Track Inspector when a specific bed needs a specific Lightkey look.
 6. Use Send Test Cue and Lightkey's External Control Log before rehearsal.

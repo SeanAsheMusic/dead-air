@@ -13,7 +13,7 @@
 - MIDI, OSC, output routing, playlist modes, logs, and preflight readiness panel
 - Lighting OSC/MIDI show-cue layer with per-profile global cues, per-track cues, and named Lightkey/Luminescence/Show Off connectors
 - Support-bundle export for rehearsal troubleshooting
-- First-run/New Setup wizard, Simple/Advanced UI, Help Center, privacy doc, troubleshooting doc, and release notes
+- First-run Setup Assistant with EZ Setup presets, connector walkthrough, Simple/Advanced UI, Help Center, privacy doc, troubleshooting doc, and release notes
 
 ## Mac App Store Path
 
@@ -55,7 +55,7 @@ Use `Entitlements/DeadAir-DeveloperID.entitlements` as the starting entitlement 
 - Confirm Ableton/AbleSet can target `Dead Air In`
 - Test every learned MIDI mapping
 - Test OSC only if it will be used in the show
-- If using Lightkey, enable OSC in Lightkey and confirm Dead Air's Send Test Cue appears in Lightkey's External Control Log
+- If using connectors, complete Setup Assistant > Connectors and confirm the appropriate test cue appears in Lightkey, Luminescence, Show Off, Custom OSC, or MIDI fallback monitoring
 - If using Luminescence, start its OSC Listener and confirm Dead Air's Luminescence cue reaches the expected live cue
 - If using Show Off, confirm Dead Air's Show Off cue appears as an operator/stage notification over OSC `39051`
 - If using another DMX/show-control app, choose Custom OSC or MIDI and confirm the app receives Dead Air's Send Test Cue
@@ -66,7 +66,8 @@ Use `Entitlements/DeadAir-DeveloperID.entitlements` as the starting entitlement 
 - Crash or quit Ableton while Dead Air is audible
 - Unplug/replug the audio interface
 - Test Show Mode heartbeat behavior
+- Verify external MIDI/OSC cannot start audio until Show Mode is deliberately armed
 - Export/inspect logs after rehearsal
-- Verify Simple/Advanced, Show Dark, System Light/Dark, Help Center, and setup wizard at small and large window sizes
+- Verify Simple/Advanced, Show Dark, System Light/Dark, Help Center, and Setup Assistant at small and large window sizes
 - Verify referenced-file Relink and stale bookmark refresh on a moved file
 - Verify support-bundle redaction before sending logs externally

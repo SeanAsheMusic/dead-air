@@ -37,6 +37,7 @@ public final class AudioEngineController: @unchecked Sendable {
     private var activeMixer: AVAudioMixerNode
     private var activePlayer: AVAudioPlayerNode
     private var activeBuffer: AVAudioPCMBuffer?
+    private var activeBufferIsScheduled = false
     private var fadeTimer: DispatchSourceTimer?
     private var fadeID = UUID()
     private var targetGain: Float = FadeMath.dbToLinear(-14.0)
@@ -208,10 +209,12 @@ public final class AudioEngineController: @unchecked Sendable {
     }
 
     private func primeOnQueue(buffer: AVAudioPCMBuffer, muted: Bool = true) {
+        cancelFade()
         activePlayer.stop()
         activePlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         activeMixer.outputVolume = muted ? 0 : targetGain
-        if !activePlayer.isPlaying {
+        activeBufferIsScheduled = true
+        if !muted, !activePlayer.isPlaying {
             activePlayer.play()
         }
         Diagnostics.shared.record(LogEvent(source: "audio", message: "bed primed", raw: "\(buffer.frameLength) frames"))
@@ -230,6 +233,10 @@ public final class AudioEngineController: @unchecked Sendable {
             if !self.engine.isRunning {
                 try? self.engine.start()
             }
+            if !self.activeBufferIsScheduled, let activeBuffer = self.activeBuffer {
+                self.activePlayer.scheduleBuffer(activeBuffer, at: nil, options: [.loops], completionHandler: nil)
+                self.activeBufferIsScheduled = true
+            }
             if !self.activePlayer.isPlaying {
                 self.activePlayer.play()
             }
@@ -239,13 +246,19 @@ public final class AudioEngineController: @unchecked Sendable {
 
     public func fadeOut(durationMs: Int, completion: @escaping @Sendable () -> Void) {
         queue.async {
-            self.startFade(to: 0, durationMs: durationMs, completion: completion)
+            self.startFade(to: 0, durationMs: durationMs) {
+                self.activePlayer.stop()
+                self.activeBufferIsScheduled = false
+                completion()
+            }
         }
     }
 
     public func panicMute() {
         queue.async {
             self.cancelFade()
+            self.activePlayer.stop()
+            self.activeBufferIsScheduled = false
             self.mixerA.outputVolume = 0
             self.mixerB.outputVolume = 0
             Diagnostics.shared.record(LogEvent(source: "audio", message: "panic mute"))
@@ -334,6 +347,7 @@ public final class AudioEngineController: @unchecked Sendable {
                 self.activePlayer = incomingPlayer
                 self.activeMixer = incomingMixer
                 self.activeBuffer = buffer
+                self.activeBufferIsScheduled = true
                 self.cancelFade()
                 Diagnostics.shared.record(LogEvent(source: "audio", message: "crossfade complete", raw: "\(durationMs) ms"))
                 completion()

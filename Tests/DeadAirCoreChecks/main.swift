@@ -239,6 +239,64 @@ func runChecks() throws {
     try expect(OSCParser.commandFromPlainText("/deadAir/panic") == .panic, "OSC panic parse")
     try expect(OSCParser.commandFromPlainText("/lbk/level 0.5") == .setLevel(0.5), "OSC level parse")
 
+    let safetyNow = Date()
+    let safetyReadyAt = safetyNow.addingTimeInterval(3)
+    try expect(
+        ShowControlSafetyPolicy.dropReason(
+            for: .fadeIn,
+            source: .oscLocal,
+            showModeArmed: false,
+            setupAssistantOpen: false,
+            externalControlReadyAt: safetyNow.addingTimeInterval(-1),
+            now: safetyNow
+        ) == "Show Mode is disarmed",
+        "external fade-in requires armed Show Mode"
+    )
+    try expect(
+        ShowControlSafetyPolicy.dropReason(
+            for: .fadeIn,
+            source: .ui,
+            showModeArmed: false,
+            setupAssistantOpen: false,
+            externalControlReadyAt: safetyReadyAt,
+            now: safetyNow
+        ) == nil,
+        "UI fade-in bypasses external safety interlock"
+    )
+    try expect(
+        ShowControlSafetyPolicy.dropReason(
+            for: .panic,
+            source: .midiVirtual,
+            showModeArmed: false,
+            setupAssistantOpen: true,
+            externalControlReadyAt: safetyReadyAt,
+            now: safetyNow
+        ) == nil,
+        "external panic remains available during setup and startup"
+    )
+    try expect(
+        ShowControlSafetyPolicy.dropReason(
+            for: .arm,
+            source: .midiVirtual,
+            showModeArmed: false,
+            setupAssistantOpen: false,
+            externalControlReadyAt: safetyReadyAt,
+            now: safetyNow
+        ) == "startup safety window",
+        "external arm is blocked during startup safety window"
+    )
+    try expect(
+        ShowControlSafetyPolicy.dropReason(
+            for: .fadeIn,
+            source: .oscLocal,
+            showModeArmed: true,
+            setupAssistantOpen: false,
+            externalControlReadyAt: safetyNow.addingTimeInterval(-1),
+            now: safetyNow
+        ) == nil,
+        "external fade-in is accepted after startup when Show Mode is armed"
+    )
+
     let deduper = CommandDeduper(window: 0.250)
     let now = Date()
     try expect(deduper.shouldAccept(.fadeIn, source: .midiVirtual, at: now), "dedupe first command accepted")

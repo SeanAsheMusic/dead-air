@@ -18,7 +18,7 @@ Referenced files are not copied. If a desktop folder or external drive moved, se
 
 ## MIDI Not Responding
 
-- Use the guided setup wizard or Settings > MIDI/OSC.
+- Use Setup Assistant or Settings > MIDI/OSC.
 - Confirm the exact IAC/DAW source is selected.
 - Use MIDI Learn and send the event from Ableton, a controller, IAC, or another DAW.
 - Avoid generic source names such as just `IAC` when multiple apps are open.

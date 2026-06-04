@@ -13,7 +13,7 @@ Dead Air is a native macOS live-show utility for transition-bed playback and loc
 ## Reviewer Setup
 
 1. Launch Dead Air.
-2. Use the setup wizard or skip it.
+2. Use Setup Assistant or skip it.
 3. Import any short audio file.
 4. Press Fade In, Fade Out, Next Bed, and Panic Mute.
 5. Open Settings to inspect output routing, MIDI/OSC, Lighting, Diagnostics, and Profiles.

@@ -17,7 +17,7 @@ Use this runbook for every notarized beta or release candidate. Record results i
 1. Install from the release DMG into `/Applications`.
 2. Launch by double-clicking `Dead Air.app`.
 3. Confirm macOS does not require right-click Open or quarantine workarounds.
-4. Complete the first-run wizard with the target show preset.
+4. Complete Setup Assistant with the target EZ Setup preset and connector path.
 5. Quit and relaunch from the menu bar and Dock.
 
 ## Core UI
@@ -25,7 +25,7 @@ Use this runbook for every notarized beta or release candidate. Record results i
 1. Switch Simple and Advanced modes.
 2. Verify Show Dark, Light, Dark, and System appearance modes.
 3. Resize to the smallest supported window and a large external-display window.
-4. Open Help Center, Settings, Diagnostics, and Support Bundle export.
+4. Open Help Center, Setup Assistant, Settings, Diagnostics, and redacted Support Bundle export.
 5. Close the main window and reopen it from the menu bar.
 
 ## Library And Persistence
@@ -52,21 +52,23 @@ Use this runbook for every notarized beta or release candidate. Record results i
 ## MIDI And OSC
 
 1. Send virtual MIDI from the target DAW or IAC bus.
-2. Learn and trigger fade in, fade out, panic, next bed, arm, disarm, and level.
-3. Send inbound OSC to `127.0.0.1:38101`.
-4. Confirm duplicate MIDI or OSC commands are deduped except panic.
-5. Confirm Show Mode heartbeat behavior when the source stops.
+2. Launch Dead Air with MIDI/OSC sources already running and confirm external fade-in, next-bed, and level commands are ignored while Show Mode is disarmed.
+3. Arm Show Mode from the app, then learn and trigger fade in, fade out, panic, next bed, arm, disarm, and level.
+4. Send inbound OSC to `127.0.0.1:38101`.
+5. Confirm duplicate MIDI or OSC commands are deduped except panic.
+6. Confirm Show Mode heartbeat behavior when the source stops.
 
-## Lighting And Show Control
+## Connectors And Show Control
 
-1. Send the Lightkey test cue to `127.0.0.1:21600`.
-2. Confirm Lightkey External Control Log receives the expected cue.
-3. Start Luminescence's OSC Listener and send a Luminescence OSC test cue to `127.0.0.1:9001` using `/luminescence/cue`.
-4. Run Show Off and send a Show Off OSC notification test cue to `127.0.0.1:39051`.
-5. Send a Custom OSC cue to a local UDP/OSC receiver.
-6. Send a lighting MIDI cue to the target virtual or hardware destination.
-7. Confirm lighting-send failures do not interrupt audio.
-8. Confirm global and per-track cue maps trigger as expected.
+1. Use Setup Assistant > Connectors and confirm every connector card explains the expected receiver, endpoint, and test behavior.
+2. Send the Lightkey test cue to `127.0.0.1:21600`.
+3. Confirm Lightkey External Control Log receives the expected cue.
+4. Start Luminescence's OSC Listener and send a Luminescence OSC test cue to `127.0.0.1:9001` using `/luminescence/cue`.
+5. Run Show Off and send a Show Off OSC notification test cue to `127.0.0.1:39051`.
+6. Send a Custom OSC cue to a local UDP/OSC receiver.
+7. Send a MIDI fallback cue to the target virtual or hardware destination.
+8. Confirm connector-send failures do not interrupt audio.
+9. Confirm global and per-track cue maps trigger as expected.
 
 ## Privacy And Support
 
