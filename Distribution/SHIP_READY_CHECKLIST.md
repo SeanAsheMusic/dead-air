@@ -46,6 +46,8 @@ Use `Entitlements/DeadAir-DeveloperID.entitlements` as the starting entitlement 
 
 ## Final Stage Test Before Release
 
+- Complete `Distribution/QA_RUNBOOK.md`
+- Save a completed copy of `Distribution/QA_RESULTS_TEMPLATE.md` for the exact release SHA and DMG
 - Import real show transition beds
 - Test both Copy and Reference import modes
 - Relaunch after Reference imports and confirm external beds still open

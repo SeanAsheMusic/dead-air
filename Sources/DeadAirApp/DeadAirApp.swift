@@ -18,6 +18,7 @@ struct SupportReadinessItem: Codable {
 
 struct SupportBundle: Codable {
     let generatedAt: Date
+    let redactionStatus: String
     let config: AppConfig
     let activeProfile: ShowProfile?
     let readiness: [SupportReadinessItem]
@@ -1106,10 +1107,11 @@ final class DeadAirModel: ObservableObject {
                 let shouldRedact = config.logging.redactSensitiveData
                 let bundle = SupportBundle(
                     generatedAt: Date(),
+                    redactionStatus: shouldRedact ? "enabled" : "disabled",
                     config: shouldRedact ? redactedSupportConfig() : config,
                     activeProfile: shouldRedact ? nil : activeProfile,
-                    readiness: readinessItems.map { SupportReadinessItem(title: $0.title, detail: $0.detail, isReady: $0.isReady) },
-                    recentEvents: Diagnostics.shared.snapshot(limit: 250),
+                    readiness: redactedReadinessItems(shouldRedact: shouldRedact),
+                    recentEvents: redactedRecentEvents(shouldRedact: shouldRedact),
                     audioDevices: shouldRedact ? redactedAudioDevices() : devices,
                     outputPairs: outputPairs.map { "\($0.left)-\($0.right)" },
                     lightingCueMap: shouldRedact ? "[redacted]" : lightingCueMapText,
@@ -1129,12 +1131,22 @@ final class DeadAirModel: ObservableObject {
     }
 
     private func redactedSupportConfig() -> AppConfig {
-        var redacted = config
-        redacted.audio.preferredOutputUID = redacted.audio.preferredOutputUID == nil ? nil : "[redacted]"
-        redacted.midi.iacBusName = redacted.midi.iacBusName.isEmpty ? "" : "[redacted]"
-        redacted.midi.iacSourceName = redacted.midi.iacSourceName == nil ? nil : "[redacted]"
-        redacted.lighting.midiDestinationName = redacted.lighting.midiDestinationName.isEmpty ? "" : "[redacted]"
-        return redacted
+        PrivacyRedactor.redactedConfig(config)
+    }
+
+    private func redactedReadinessItems(shouldRedact: Bool) -> [SupportReadinessItem] {
+        readinessItems.map { item in
+            SupportReadinessItem(
+                title: item.title,
+                detail: shouldRedact ? PrivacyRedactor.redact(item.detail) : item.detail,
+                isReady: item.isReady
+            )
+        }
+    }
+
+    private func redactedRecentEvents(shouldRedact: Bool) -> [LogEvent] {
+        let events = Diagnostics.shared.snapshot(limit: 250)
+        return shouldRedact ? events.map(PrivacyRedactor.redactedLogEvent) : events
     }
 
     private func redactedAudioDevices() -> [AudioOutputDevice] {

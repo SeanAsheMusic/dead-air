@@ -77,14 +77,7 @@ public final class Diagnostics: @unchecked Sendable {
     }
 
     private func redacted(_ event: LogEvent) -> LogEvent {
-        var copy = event
-        if let raw = copy.raw, raw.contains("/Users/") || raw.contains("file://") || raw.contains(".app/") {
-            copy.raw = "[redacted]"
-        }
-        if let uid = copy.audioDeviceUID, !uid.isEmpty {
-            copy.audioDeviceUID = "[redacted]"
-        }
-        return copy
+        PrivacyRedactor.redactedLogEvent(event)
     }
 
     private func removeExpiredLogs(in directory: URL) {

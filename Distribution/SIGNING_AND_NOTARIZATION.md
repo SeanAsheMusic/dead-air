@@ -36,7 +36,39 @@ Output:
 
 `dist-developer-id/Dead Air.app`
 
-Then notarize, staple, and verify on a clean Mac account.
+## Release DMG, Notarization, And Stapling
+
+Use the release packager for direct-download beta or release distribution:
+
+```sh
+DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Undeniable Spectacle (TEAMID)" \
+DEAD_AIR_NOTARY_PROFILE="dead-air-notary" \
+./Scripts/package_release_dmg.sh --notarize
+```
+
+If a notarytool keychain profile is not configured, provide:
+
+```sh
+APPLE_ID="apple-id@example.com" \
+APPLE_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" \
+APPLE_TEAM_ID="TEAMID" \
+DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Undeniable Spectacle (TEAMID)" \
+./Scripts/package_release_dmg.sh --notarize
+```
+
+Output:
+
+`release/Dead-Air-4.0.0-4.dmg`
+
+The script builds the Developer ID app, verifies the app signature, creates a DMG, signs the DMG, submits it to Apple notarization, staples the ticket, and verifies the stapled DMG with Gatekeeper assessment. A notarized DMG is the shareable artifact that should not require right-click Gatekeeper workarounds.
+
+For an internal signed-only artifact while waiting on Apple credentials:
+
+```sh
+DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Undeniable Spectacle (TEAMID)" ./Scripts/package_release_dmg.sh
+```
+
+Do not ship the signed-only DMG outside trusted internal testing. It is not notarized.
 
 This is the path for a normal direct-download installer or DMG outside the Mac App Store.
 
@@ -53,6 +85,10 @@ This is the path for Mac App Store distribution and App Review.
 - Local launch
 - Sandbox launch
 - Code-sign verification
+- Signed DMG verification
+- Notarization submission success
+- Stapler success
+- Gatekeeper assessment success
 - Lightkey External Control Log test
 - Ableton/AbleSet MIDI test
 - Audio route change test

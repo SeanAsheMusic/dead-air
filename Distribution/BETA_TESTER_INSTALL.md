@@ -1,16 +1,15 @@
 # Dead Air Beta Install Notes
 
-Dead Air is currently an unsigned beta build from Undeniable Spectacle.
+Dead Air beta builds should be distributed as a Developer ID signed and notarized DMG from Undeniable Spectacle.
 
 ## Install
 
 1. Open the DMG.
 2. Drag `Dead Air.app` into `Applications`.
 3. Open `Applications`.
-4. Right-click `Dead Air.app` and choose `Open`.
-5. Confirm the macOS warning if it appears.
+4. Double-click `Dead Air.app`.
 
-The right-click step is only needed because this beta is not Developer ID signed and notarized yet.
+If macOS blocks launch, stop and ask for a new DMG. Do not use right-click Open for release QA because that bypasses the Gatekeeper path the release must satisfy.
 
 ## First Setup
 

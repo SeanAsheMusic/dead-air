@@ -133,6 +133,41 @@ func runChecks() throws {
     let diagnosticSnapshot = Diagnostics.shared.snapshot(limit: 30)
     try expect(!diagnosticSnapshot.isEmpty, "diagnostics snapshot returns events")
     try expect(diagnosticSnapshot.allSatisfy { $0.raw != "/Users/example/audio.wav" }, "diagnostics snapshot redacts paths")
+    try expect(diagnosticSnapshot.allSatisfy { $0.audioDeviceUID == PrivacyRedactor.marker }, "diagnostics snapshot redacts audio device IDs")
+
+    let redactedVolumePath = PrivacyRedactor.redact("/Volumes/Show Drive/Artist/Walk In.wav")
+    try expect(!redactedVolumePath.contains("/Volumes/Show Drive"), "privacy redactor removes volume paths")
+    let redactedHomeRelativePath = PrivacyRedactor.redact("~/Music/Dead Air/Show.wav")
+    try expect(!redactedHomeRelativePath.contains("~/Music"), "privacy redactor removes home-relative paths")
+    let redactedFileURL = PrivacyRedactor.redact("file:///Users/operator/Music/Intro.wav")
+    try expect(!redactedFileURL.contains("/Users/operator"), "privacy redactor removes file URLs")
+    let redactedNetworkURL = PrivacyRedactor.redact("smb://venue-nas.local/show/playlist.wav")
+    try expect(!redactedNetworkURL.contains("venue-nas.local"), "privacy redactor removes network paths")
+    let redactedUUID = PrivacyRedactor.redact("device 123E4567-E89B-12D3-A456-426614174000 selected")
+    try expect(!redactedUUID.contains("123E4567"), "privacy redactor removes UUID-like identifiers")
+
+    var sensitiveConfig = AppConfig()
+    sensitiveConfig.audio.preferredOutputUID = "123E4567-E89B-12D3-A456-426614174000"
+    sensitiveConfig.midi.virtualDestinationName = "Dead Air In Private Rig"
+    sensitiveConfig.midi.iacBusName = "Logic Venue IAC"
+    sensitiveConfig.midi.iacSourceUniqueID = 99
+    sensitiveConfig.midi.iacSourceName = "Ableton House Rig"
+    sensitiveConfig.midi.mappings = [
+        MIDIMapping(action: .fadeIn, messageType: .noteOn, channel: 1, number: 12, sourceContains: "House Controller")
+    ]
+    sensitiveConfig.lighting.midiDestinationName = "Lightkey Venue Mac"
+    sensitiveConfig.lighting.midiDestinationUniqueID = 42
+    sensitiveConfig.lighting.cues = [generatedCue]
+    let redactedConfig = PrivacyRedactor.redactedConfig(sensitiveConfig)
+    try expect(redactedConfig.audio.preferredOutputUID == PrivacyRedactor.marker, "support config redacts output UID")
+    try expect(redactedConfig.midi.virtualDestinationName == PrivacyRedactor.marker, "support config redacts virtual MIDI destination")
+    try expect(redactedConfig.midi.iacBusName == PrivacyRedactor.marker, "support config redacts IAC bus name")
+    try expect(redactedConfig.midi.iacSourceUniqueID == 0, "support config redacts MIDI source unique ID")
+    try expect(redactedConfig.midi.iacSourceName == PrivacyRedactor.marker, "support config redacts MIDI source name")
+    try expect(redactedConfig.midi.mappings.first?.sourceContains == PrivacyRedactor.marker, "support config redacts mapping source filters")
+    try expect(redactedConfig.lighting.midiDestinationName == PrivacyRedactor.marker, "support config redacts lighting MIDI destination")
+    try expect(redactedConfig.lighting.midiDestinationUniqueID == 0, "support config redacts lighting MIDI destination ID")
+    try expect(redactedConfig.lighting.cues.isEmpty, "support config removes lighting cue map details")
 
     var profileConfig = AppConfig()
     profileConfig.audio.targetSampleRate = 96_000
