@@ -93,6 +93,31 @@ public enum LightkeyOSCAddress {
     }
 }
 
+public struct OSCConnectorEndpoint: Equatable, Sendable {
+    public var host: String
+    public var port: Int
+
+    public init(host: String, port: Int) {
+        self.host = host
+        self.port = port
+    }
+}
+
+public extension LightingProvider {
+    var defaultOSCEndpoint: OSCConnectorEndpoint? {
+        switch self {
+        case .lightkeyOSC:
+            return OSCConnectorEndpoint(host: "127.0.0.1", port: 21_600)
+        case .luminescenceOSC:
+            return OSCConnectorEndpoint(host: "127.0.0.1", port: 9_001)
+        case .showOffOSC:
+            return OSCConnectorEndpoint(host: "127.0.0.1", port: 39_051)
+        case .customOSC, .midi:
+            return nil
+        }
+    }
+}
+
 public extension LightingCue {
     var lightkeyAddress: String? {
         LightkeyOSCAddress.generatedAddress(for: self)
@@ -102,6 +127,10 @@ public extension LightingCue {
         switch provider {
         case .lightkeyOSC:
             return lightkeyAddress
+        case .luminescenceOSC:
+            return rawAddressOrDefault("/luminescence/cue")
+        case .showOffOSC:
+            return rawAddressOrDefault(showOffDefaultAddress)
         case .customOSC:
             let raw = rawOSCAddress?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             return raw.isEmpty ? nil : raw
@@ -111,13 +140,25 @@ public extension LightingCue {
     }
 
     var oscArguments: [OSCArgument] {
-        switch action {
-        case .intensity:
-            let value = max(0, min(1, intensity ?? 1))
-            return [.float32(Float(value))]
-        case .activate, .deactivate, .toggle, .selectPage, .nextCue, .previousCue:
-            guard let fadeTimeSeconds else { return [] }
-            return [.float32(Float(max(0, fadeTimeSeconds)))]
+        switch provider {
+        case .luminescenceOSC:
+            return [.string(luminescenceCueName)]
+        case .showOffOSC:
+            guard let address = oscAddress, address.hasPrefix("/notify") else { return [] }
+            let toneTarget = provider == .showOffOSC ? "all" : ""
+            let duration = Int32(max(1_000, min(30_000, Int((fadeTimeSeconds ?? 3.5) * 1000))))
+            return [.string("\(name): \(trigger.displayName)"), .string(toneTarget), .int32(duration)]
+        case .lightkeyOSC, .customOSC:
+            switch action {
+            case .intensity:
+                let value = max(0, min(1, intensity ?? 1))
+                return [.float32(Float(value))]
+            case .activate, .deactivate, .toggle, .selectPage, .nextCue, .previousCue:
+                guard let fadeTimeSeconds else { return [] }
+                return [.float32(Float(max(0, fadeTimeSeconds)))]
+            }
+        case .midi:
+            return []
         }
     }
 
@@ -125,6 +166,10 @@ public extension LightingCue {
         switch provider {
         case .lightkeyOSC:
             return lightkeyAddress ?? "Lightkey OSC not configured"
+        case .luminescenceOSC:
+            return "\(oscAddress ?? "/luminescence/cue") \(luminescenceCueName)"
+        case .showOffOSC:
+            return oscAddress ?? "Show Off OSC not configured"
         case .customOSC:
             return oscAddress ?? "Custom OSC address required"
         case .midi:
@@ -137,11 +182,11 @@ public extension LightingCue {
         var warnings: [String] = []
 
         switch provider {
-        case .lightkeyOSC, .customOSC:
-            if config.lightkeyHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        case .lightkeyOSC, .luminescenceOSC, .showOffOSC, .customOSC:
+            if oscEndpoint(config: config)?.host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
                 warnings.append("OSC host is empty.")
             }
-            if !(1 ... 65_535).contains(config.lightkeyPort) {
+            if let port = oscEndpoint(config: config)?.port, !(1 ... 65_535).contains(port) {
                 warnings.append("OSC port must be 1-65535.")
             }
 
@@ -154,7 +199,11 @@ public extension LightingCue {
                 }
             } else if provider == .customOSC {
                 warnings.append("Custom OSC address is required.")
-            } else {
+            } else if provider == .luminescenceOSC {
+                if luminescenceCueName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    warnings.append("Luminescence cue name is empty.")
+                }
+            } else if provider == .lightkeyOSC {
                 let page = pageName.trimmingCharacters(in: .whitespacesAndNewlines)
                 if page.isEmpty {
                     warnings.append("Lightkey page is empty.")
@@ -199,18 +248,66 @@ public extension LightingCue {
         return warnings
     }
 
+    func oscEndpoint(config: LightingConfig) -> OSCConnectorEndpoint? {
+        guard provider.usesOSC else { return nil }
+        let overrideHost = oscHostOverride?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let host: String
+        if !overrideHost.isEmpty {
+            host = overrideHost
+        } else if let endpoint = provider.defaultOSCEndpoint {
+            host = endpoint.host
+        } else {
+            host = config.lightkeyHost
+        }
+
+        let port = oscPortOverride ?? provider.defaultOSCEndpoint?.port ?? config.lightkeyPort
+        return OSCConnectorEndpoint(host: host, port: port)
+    }
+
     static func template(trigger: LightingCueTrigger, provider: LightingProvider = .lightkeyOSC) -> LightingCue {
-        let rawOSCAddress = provider == .customOSC ? "/deadAir/\(trigger.rawValue)" : nil
+        let rawOSCAddress: String? = switch provider {
+        case .customOSC:
+            "/deadAir/\(trigger.rawValue)"
+        case .luminescenceOSC:
+            "/luminescence/cue"
+        case .showOffOSC:
+            showOffDefaultAddress(for: trigger)
+        case .lightkeyOSC, .midi:
+            nil
+        }
         return LightingCue(
             enabled: true,
             name: trigger.displayName,
             trigger: trigger,
             provider: provider,
             pageName: "Live",
-            cueName: "Transition",
+            cueName: provider == .luminescenceOSC ? trigger.displayName : "Transition",
             action: .activate,
             rawOSCAddress: rawOSCAddress
         )
+    }
+
+    private var luminescenceCueName: String {
+        let configured = cueName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return configured.isEmpty ? name : configured
+    }
+
+    private var showOffDefaultAddress: String {
+        Self.showOffDefaultAddress(for: trigger)
+    }
+
+    private func rawAddressOrDefault(_ fallback: String) -> String {
+        let raw = rawOSCAddress?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return raw.isEmpty ? fallback : raw
+    }
+
+    private static func showOffDefaultAddress(for trigger: LightingCueTrigger) -> String {
+        switch trigger {
+        case .panicMuted, .heartbeatLost:
+            return "/notify/critical"
+        default:
+            return "/notify/cue"
+        }
     }
 }
 

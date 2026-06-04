@@ -29,7 +29,7 @@ Output:
 After the Apple Developer account and Developer ID certificate are available:
 
 ```sh
-DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Undeniable Spectacle" ./Scripts/build_app.sh --developer-id
+DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Sean Ashe (G82WS97Q35)" ./Scripts/build_app.sh --developer-id
 ```
 
 Output:
@@ -41,7 +41,7 @@ Output:
 Use the release packager for direct-download beta or release distribution:
 
 ```sh
-DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Undeniable Spectacle (TEAMID)" \
+DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Sean Ashe (G82WS97Q35)" \
 DEAD_AIR_NOTARY_PROFILE="dead-air-notary" \
 ./Scripts/package_release_dmg.sh --notarize
 ```
@@ -52,7 +52,7 @@ If a notarytool keychain profile is not configured, provide:
 APPLE_ID="apple-id@example.com" \
 APPLE_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" \
 APPLE_TEAM_ID="TEAMID" \
-DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Undeniable Spectacle (TEAMID)" \
+DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Sean Ashe (G82WS97Q35)" \
 ./Scripts/package_release_dmg.sh --notarize
 ```
 
@@ -65,7 +65,7 @@ The script builds the Developer ID app, verifies the app signature, creates a DM
 For an internal signed-only artifact while waiting on Apple credentials:
 
 ```sh
-DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Undeniable Spectacle (TEAMID)" ./Scripts/package_release_dmg.sh
+DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Sean Ashe (G82WS97Q35)" ./Scripts/package_release_dmg.sh
 ```
 
 Do not ship the signed-only DMG outside trusted internal testing. It is not notarized.

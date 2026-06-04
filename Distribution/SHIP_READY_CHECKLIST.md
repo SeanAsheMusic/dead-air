@@ -11,7 +11,7 @@
 - Optional external references with security-scoped bookmarks
 - Local-only show runtime
 - MIDI, OSC, output routing, playlist modes, logs, and preflight readiness panel
-- Lighting OSC/MIDI show-cue layer with per-profile global cues and per-track cues
+- Lighting OSC/MIDI show-cue layer with per-profile global cues, per-track cues, and named Lightkey/Luminescence/Show Off connectors
 - Support-bundle export for rehearsal troubleshooting
 - First-run/New Setup wizard, Simple/Advanced UI, Help Center, privacy doc, troubleshooting doc, and release notes
 
@@ -56,6 +56,8 @@ Use `Entitlements/DeadAir-DeveloperID.entitlements` as the starting entitlement 
 - Test every learned MIDI mapping
 - Test OSC only if it will be used in the show
 - If using Lightkey, enable OSC in Lightkey and confirm Dead Air's Send Test Cue appears in Lightkey's External Control Log
+- If using Luminescence, start its OSC Listener and confirm Dead Air's Luminescence cue reaches the expected live cue
+- If using Show Off, confirm Dead Air's Show Off cue appears as an operator/stage notification over OSC `39051`
 - If using another DMX/show-control app, choose Custom OSC or MIDI and confirm the app receives Dead Air's Send Test Cue
 - Confirm each global and per-track lighting cue triggers the intended scene
 - Confirm the lighting app closed/offline does not stop Dead Air audio

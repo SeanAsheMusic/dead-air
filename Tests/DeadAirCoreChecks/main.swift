@@ -13,6 +13,13 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
     }
 }
 
+func fixtureData(_ string: String) throws -> Data {
+    guard let data = string.data(using: .utf8) else {
+        throw CheckFailure(message: "fixture could not be encoded as UTF-8")
+    }
+    return data
+}
+
 func runChecks() throws {
     let config = AppConfig()
     try expect(config.midi.channel == 16, "default MIDI channel")
@@ -40,7 +47,15 @@ func runChecks() throws {
     try expect(abletonPreset.audio.targetSampleRate == 48_000, "preset keeps 48 kHz")
     try expect(abletonPreset.version == "4.0.0", "preset migrates config version")
 
-    let legacyLoggingJSON = "{}".data(using: .utf8)!
+    let luminescencePreset = ShowSetupPreset.abletonLuminescence.applying(to: AppConfig())
+    try expect(luminescencePreset.lighting.defaultProvider == .luminescenceOSC, "Luminescence preset selects Luminescence OSC")
+    try expect(luminescencePreset.lighting.lightkeyPort == 9_001, "Luminescence preset sets OSC input port")
+
+    let showOffPreset = ShowSetupPreset.showOffBridge.applying(to: AppConfig())
+    try expect(showOffPreset.lighting.defaultProvider == .showOffOSC, "Show Off preset selects Show Off OSC")
+    try expect(showOffPreset.lighting.lightkeyPort == 39_051, "Show Off preset sets OSC input port")
+
+    let legacyLoggingJSON = try fixtureData("{}")
     let legacyLogging = try JSONDecoder().decode(LoggingConfig.self, from: legacyLoggingJSON)
     try expect(legacyLogging.redactSensitiveData, "legacy logging defaults redaction on")
     try expect(legacyLogging.retentionDays == 30, "legacy logging defaults 30-day retention")
@@ -50,16 +65,16 @@ func runChecks() throws {
     try expect(endpointRoundTrip.iacSourceUniqueID == 42, "MIDI endpoint unique ID round trips")
     try expect(endpointRoundTrip.iacSourceName == "Ableton Live", "MIDI endpoint name round trips")
 
-    let legacyConfigJSON = """
+    let legacyConfigJSON = try fixtureData("""
     {"version":"1.0","showModeArmed":false,"bedAdvanceMode":"manualContinuous","libraryStorageMode":"managedCopy"}
-    """.data(using: .utf8)!
+    """)
     let legacyConfig = try JSONDecoder().decode(AppConfig.self, from: legacyConfigJSON)
     try expect(!legacyConfig.lighting.enabled, "legacy config defaults lighting disabled")
     try expect(legacyConfig.lighting.lightkeyPort == 21_600, "legacy config defaults Lightkey port")
 
-    let legacyBedJSON = """
+    let legacyBedJSON = try fixtureData("""
     {"id":"00000000-0000-0000-0000-000000000001","title":"Legacy","fileName":"legacy.wav","enabled":true,"seamlessLoop":true,"createdAt":"2026-05-11T00:00:00Z"}
-    """.data(using: .utf8)!
+    """)
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy = .iso8601
     let legacyBed = try decoder.decode(BedItem.self, from: legacyBedJSON)
@@ -102,6 +117,18 @@ func runChecks() throws {
     try expect(customCue.oscAddress == "/qlcplus/button/1", "custom OSC raw address preserved")
     try expect(customCue.displaySummary == "/qlcplus/button/1", "custom OSC display summary uses raw address")
     try expect(customCue.validationWarnings(config: config.lighting).isEmpty, "valid custom OSC cue passes validation")
+
+    let luminescenceCue = LightingCue(name: "Lum Cue", trigger: .fadeInStarted, provider: .luminescenceOSC, cueName: "Blue Wash")
+    try expect(luminescenceCue.oscAddress == "/luminescence/cue", "Luminescence OSC address defaults")
+    try expect(luminescenceCue.oscArguments == [.string("Blue Wash")], "Luminescence sends cue name argument")
+    try expect(luminescenceCue.oscEndpoint(config: config.lighting) == OSCConnectorEndpoint(host: "127.0.0.1", port: 9_001), "Luminescence endpoint defaults")
+    try expect(luminescenceCue.validationWarnings(config: config.lighting).isEmpty, "valid Luminescence cue passes validation")
+
+    let showOffCue = LightingCue(name: "Dead Air Fade", trigger: .fadeInStarted, provider: .showOffOSC)
+    try expect(showOffCue.oscAddress == "/notify/cue", "Show Off OSC notification defaults")
+    try expect(showOffCue.oscEndpoint(config: config.lighting) == OSCConnectorEndpoint(host: "127.0.0.1", port: 39_051), "Show Off endpoint defaults")
+    try expect(showOffCue.oscArguments == [.string("Dead Air Fade: Fade In Started"), .string("all"), .int32(3_500)], "Show Off notification arguments encode")
+    try expect(showOffCue.validationWarnings(config: config.lighting).isEmpty, "valid Show Off cue passes validation")
 
     let invalidCustomCue = LightingCue(name: "Broken OSC", provider: .customOSC, rawOSCAddress: "bad path")
     try expect(!invalidCustomCue.validationWarnings(config: config.lighting).isEmpty, "invalid custom OSC cue warns")
@@ -182,9 +209,9 @@ func runChecks() throws {
     try expect(applied.lighting.cues.count == 1, "show profile applies lighting cues")
     try expect(applied.activeProfileID == profile.id, "show profile marks active profile")
 
-    let legacyProfileJSON = """
+    let legacyProfileJSON = try fixtureData("""
     {"id":"00000000-0000-0000-0000-000000000002","name":"Legacy Profile","notes":"","createdAt":"2026-05-11T00:00:00Z","updatedAt":"2026-05-11T00:00:00Z","bedAdvanceMode":"manualContinuous","libraryStorageMode":"managedCopy"}
-    """.data(using: .utf8)!
+    """)
     let legacyProfile = try decoder.decode(ShowProfile.self, from: legacyProfileJSON)
     try expect(legacyProfile.name == "Legacy Profile", "legacy profile decodes")
     try expect(!legacyProfile.lighting.enabled, "legacy profile defaults lighting disabled")

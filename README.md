@@ -9,7 +9,7 @@ For fast setup, see [QUICKSTART.md](QUICKSTART.md). For operator instructions, s
 - Company and bundle identity aligned to Undeniable Spectacle: `com.undeniablespectacle.deadair`
 - Version reads from the app bundle: `4.0.0` build `4`
 - First-run and New Setup wizard with guided pro defaults
-- Built-in setup presets for Ableton/AbleSet + Lightkey, generic DAW MIDI, IAC legacy rigs, DJ manual operation, QLab OSC, and reference-file workflows
+- Built-in setup presets for Ableton/AbleSet + Lightkey, Ableton/AbleSet + Luminescence, Show Off bridge, generic DAW MIDI, IAC legacy rigs, DJ manual operation, QLab OSC, and reference-file workflows
 - Simple/Advanced UI modes plus System, Show Dark, Light, and Dark appearance modes
 - Searchable built-in Help Center and macOS Help menu entry
 - Exact MIDI input source selection and exact outbound MIDI destination selection
@@ -71,6 +71,8 @@ For fast setup, see [QUICKSTART.md](QUICKSTART.md). For operator instructions, s
 
 - Outbound show-control cues so Dead Air can trigger lighting while Ableton/AbleSet loads the next session
 - Lightkey OSC target defaults to `127.0.0.1:21600`
+- Luminescence OSC connector defaults to `127.0.0.1:9001` with `/luminescence/cue` and a cue-name argument
+- Show Off OSC connector defaults to `127.0.0.1:39051` with safe `/notify/*` messages for stage/operator devices
 - Custom OSC provider for QLC+, MagicQ, QLab, grandMA, and other show-control/DMX apps that accept UDP OSC
 - Global show cues for show mode, bed priming, fade in/out, next bed, crossfade, panic, heartbeat loss, and app quit
 - Per-track lighting cues in the Track Inspector for bed-specific looks or transition scenes
@@ -123,7 +125,7 @@ That writes `dist-sandbox/Dead Air.app`.
 - Note On, Note Off, Control Change, Program Change, Pitch Bend, and MIDI transport Start/Stop/Continue matching
 - Per-command channel, number, value-threshold, and source-text matching in the config
 - OSC listener on `127.0.0.1:38101`
-- Outbound OSC sender on `127.0.0.1:21600` by default for Lightkey, with custom host/port/address support for other lighting apps
+- Outbound OSC sender on `127.0.0.1:21600` by default for Lightkey, named local connectors for Luminescence (`9001`) and Show Off (`39051`), plus custom host/port/address support for other show-control apps
 - Optional outbound MIDI lighting fallback
 - Show Mode sleep-prevention assertion
 - Menu bar operation after the main window is closed
@@ -154,7 +156,7 @@ The map is editable in the app under **Show Settings -> MIDI Map**. Click **Lear
 5. Add per-track cues in the Track Inspector when a specific bed needs a specific Lightkey look.
 6. Use Send Test Cue and Lightkey's External Control Log before rehearsal.
 
-For other lighting apps, choose **Custom OSC**, enter the app's receive host/port, and paste the exact OSC address expected by that app. MIDI remains available as a fallback when the lighting app or console exposes MIDI input instead of OSC.
+For Luminescence, choose **Luminescence OSC**, start Luminescence's OSC Listener, and set the Dead Air cue name to the matching Luminescence live cue. For Show Off, choose **Show Off OSC** to publish local stage/operator notifications over UDP `39051`; tokened HTTP write actions remain inside Show Off's own trusted workflow. For other lighting apps, choose **Custom OSC**, enter the app's receive host/port, and paste the exact OSC address expected by that app. MIDI remains available as a fallback when the lighting app or console exposes MIDI input instead of OSC.
 
 Lighting cue failures are logged but never stop Dead Air audio playback.
 
@@ -181,10 +183,10 @@ Sandbox test build:
 Developer ID build after the Apple Developer account and certificate exist:
 
 ```sh
-DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Undeniable Spectacle" ./Scripts/build_app.sh --developer-id
+DEAD_AIR_SIGN_IDENTITY="Developer ID Application: Sean Ashe (G82WS97Q35)" ./Scripts/build_app.sh --developer-id
 ```
 
-The local builds are ad-hoc signed for development. Developer ID signing, notarization, stapling, and App Store archive/export still require the Apple Developer account and final Xcode distribution workflow.
+Local builds are ad-hoc signed for development. Developer ID signing, notarization, stapling, and App Store archive/export require the Apple Developer account, a Developer ID Application certificate, and notarization credentials.
 
 ## Checks
 

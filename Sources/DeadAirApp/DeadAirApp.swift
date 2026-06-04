@@ -99,6 +99,8 @@ private extension ShowSetupPreset {
         switch self {
         case .genericDAWVirtualMIDI: "cable.connector"
         case .abletonLightkey: "sparkles"
+        case .abletonLuminescence: "lightbulb.led"
+        case .showOffBridge: "rectangle.connected.to.line.below"
         case .iacLegacyDAW: "point.3.connected.trianglepath.dotted"
         case .djManual: "headphones"
         case .qlabOSC: "network"
@@ -112,6 +114,10 @@ private extension ShowSetupPreset {
             "Clean virtual MIDI setup for most DAWs."
         case .abletonLightkey:
             "Ableton/AbleSet handoffs with Lightkey OSC."
+        case .abletonLuminescence:
+            "Ableton/AbleSet handoffs with Luminescence OSC."
+        case .showOffBridge:
+            "Dead Air cues mirrored into Show Off."
         case .iacLegacyDAW:
             "Exact IAC source workflow for older rigs."
         case .djManual:
@@ -393,6 +399,16 @@ final class DeadAirModel: ObservableObject {
         2. Keep Lightkey listening on 127.0.0.1:\(config.lighting.lightkeyPort).
         3. Copy OSC addresses from cues if you want exact paths.
 
+        Luminescence:
+        1. Open Mapping and start the OSC Listener.
+        2. Keep the default input at 0.0.0.0:9001 /luminescence/cue.
+        3. Set each Dead Air cue name to the matching Luminescence live cue.
+
+        Show Off:
+        1. Run Show Off locally so its OSC server is listening on 127.0.0.1:39051.
+        2. Use Show Off OSC for read-safe stage notifications.
+        3. Keep tokened HTTP write actions in Show Off's own trusted workflow.
+
         Other lighting apps:
         1. Choose Custom OSC in Dead Air.
         2. Set the app's host and receive port.
@@ -401,6 +417,8 @@ final class DeadAirModel: ObservableObject {
         Dead Air:
         - OSC target: \(config.lighting.lightkeyHost):\(config.lighting.lightkeyPort)
         - Lightkey generated cue example: /live/Live/cue/Transition/activate
+        - Luminescence example: /luminescence/cue "Transition"
+        - Show Off example: /notify/cue "Dead Air fade in" "all" 3500
         - Custom OSC example: /deadAir/fadeInStarted
         - Audio never waits for lighting cues; failed cues are logged only.
 
@@ -637,7 +655,8 @@ final class DeadAirModel: ObservableObject {
     func saveCurrentProfile(name: String? = nil) {
         let profileName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let fallbackName = activeProfile?.name ?? "Show Profile \(showProfiles.count + 1)"
-        let finalName = profileName?.isEmpty == false ? profileName! : fallbackName
+        let cleanedProfileName = profileName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalName = cleanedProfileName?.isEmpty == false ? cleanedProfileName ?? fallbackName : fallbackName
 
         if let profileID = config.activeProfileID,
            let index = showProfiles.firstIndex(where: { $0.id == profileID }) {
@@ -993,6 +1012,10 @@ final class DeadAirModel: ObservableObject {
 
     func setLightingDefaultProvider(_ provider: LightingProvider) {
         config.lighting.defaultProvider = provider
+        if let endpoint = provider.defaultOSCEndpoint {
+            config.lighting.lightkeyHost = endpoint.host
+            config.lighting.lightkeyPort = endpoint.port
+        }
         saveConfig()
     }
 
@@ -1088,7 +1111,7 @@ final class DeadAirModel: ObservableObject {
     func copyLightkeySetupNotesToClipboard() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(lightkeySetupNotes, forType: .string)
-        log(source: "lighting", message: "Lightkey setup notes copied")
+        log(source: "lighting", message: "connector setup notes copied")
     }
 
     func copyLightingCueMapToClipboard() {
@@ -1237,6 +1260,8 @@ final class DeadAirModel: ObservableObject {
         Lighting OSC Out:
         Target \(config.lighting.lightkeyHost):\(config.lighting.lightkeyPort)
         Lightkey example /live/Live/cue/Transition/activate
+        Luminescence example /luminescence/cue "Transition"
+        Show Off example /notify/cue "Dead Air fade in" "all" 3500
         Custom OSC example /deadAir/fadeInStarted
         \(lightingCueMapText)
         """
@@ -1631,7 +1656,7 @@ final class DeadAirModel: ObservableObject {
             }
 
             switch cue.provider {
-            case .lightkeyOSC, .customOSC:
+            case .lightkeyOSC, .luminescenceOSC, .showOffOSC, .customOSC:
                 lightkeyOSC.send(cue: cue, config: lightingConfig, trigger: trigger) { [weak self] result in
                     Task { @MainActor in
                         self?.handleLightingResult(result)
@@ -2313,14 +2338,14 @@ struct SetupWizardView: View {
                 Toggle("Enable lighting cues", isOn: Binding(get: {
                     model.config.lighting.enabled
                 }, set: { model.setLightingEnabled($0) }))
-                Picker("Provider", selection: Binding(get: {
+                Picker("Connector", selection: Binding(get: {
                     model.config.lighting.defaultProvider
                 }, set: { model.setLightingDefaultProvider($0) })) {
                     ForEach(LightingProvider.allCases) { provider in
                         Text(provider.displayName).tag(provider)
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
                 HStack {
                     TextField("Host", text: Binding(get: {
                         model.config.lighting.lightkeyHost
@@ -2472,9 +2497,9 @@ private struct WizardPresetCard: View {
             }
             .padding(16)
             .frame(minHeight: 138, alignment: .topLeading)
-            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
             .overlay(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: 8)
                     .stroke(isSelected ? Color.accentColor.opacity(0.55) : Color.white.opacity(0.09), lineWidth: isSelected ? 1.5 : 1)
             )
         }
@@ -2519,7 +2544,7 @@ private struct WizardInsightRow: View {
             Spacer()
         }
         .padding(14)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -2545,7 +2570,7 @@ private struct WizardReadinessStrip: View {
             Spacer()
         }
         .padding(16)
-        .background((isReady ? Color.green : Color.orange).opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+        .background((isReady ? Color.green : Color.orange).opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -2570,7 +2595,7 @@ private struct WizardMiniStatus: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -2618,7 +2643,7 @@ struct HelpCenterView: View {
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
             }
@@ -2728,18 +2753,18 @@ struct MainControlsView: View {
 
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    ControlButton(title: "FADE IN", systemImage: "speaker.wave.2.fill", tint: StagePalette.fadeIn, help: "Fade the selected bed up to the target level without restarting it if it is already audible.") {
+                    ControlButton(title: "Fade In", systemImage: "speaker.wave.2.fill", tint: StagePalette.fadeIn, help: "Fade the selected bed up to the target level without restarting it if it is already audible.") {
                         model.uiCommand(.fadeIn)
                     }
-                    ControlButton(title: "FADE OUT", systemImage: "speaker.slash.fill", tint: StagePalette.fadeOut, help: "Fade the active bed down to silence while keeping the engine ready.") {
+                    ControlButton(title: "Fade Out", systemImage: "speaker.slash.fill", tint: StagePalette.fadeOut, help: "Fade the active bed down to silence while keeping the engine ready.") {
                         model.uiCommand(.fadeOut)
                     }
                 }
                 HStack(spacing: 12) {
-                    ControlButton(title: "NEXT BED", systemImage: "forward.fill", tint: StagePalette.nextBed, help: "Select the next enabled bed. If audio is playing, Dead Air crossfades to the next bed.") {
+                    ControlButton(title: "Next Bed", systemImage: "forward.fill", tint: StagePalette.nextBed, help: "Select the next enabled bed. If audio is playing, Dead Air crossfades to the next bed.") {
                         model.uiCommand(.nextBed)
                     }
-                    ControlButton(title: "PANIC MUTE", systemImage: "exclamationmark.octagon.fill", tint: StagePalette.panic, help: "Immediate hard mute. This has the highest priority and cancels any active fade.") {
+                    ControlButton(title: "Panic Mute", systemImage: "exclamationmark.octagon.fill", tint: StagePalette.panic, help: "Immediate hard mute. This has the highest priority and cancels any active fade.") {
                         model.uiCommand(.panic)
                     }
                 }
@@ -3014,14 +3039,14 @@ struct LightingSettingsTab: View {
                         model.config.lighting.enabled
                     }, set: { model.setLightingEnabled($0) }))
 
-                    Picker("Default Provider", selection: Binding(get: {
+                    Picker("Default Connector", selection: Binding(get: {
                         model.config.lighting.defaultProvider
                     }, set: { model.setLightingDefaultProvider($0) })) {
                         ForEach(LightingProvider.allCases) { provider in
                             Text(provider.displayName).tag(provider)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
 
                     HStack {
                         TextField("OSC host", text: Binding(get: {
@@ -3080,7 +3105,7 @@ struct LightingSettingsTab: View {
                     Text(model.lastLightingEventSummary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("Lightkey OSC default: 127.0.0.1:21600. Custom OSC can target QLC+, MagicQ, QLab, grandMA, or any listener by host, port, and raw address.")
+                    Text("Lightkey defaults to 127.0.0.1:21600. Luminescence uses /luminescence/cue on 9001. Show Off uses OSC on 39051. Custom OSC can target any listener by host, port, and raw address.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -3143,7 +3168,7 @@ struct LightingCueEditor: View {
                 HStack {
                     TextField("Cue name", text: binding(\.name))
                         .textFieldStyle(.roundedBorder)
-                    Picker("Provider", selection: binding(\.provider)) {
+                    Picker("Connector", selection: binding(\.provider)) {
                         ForEach(LightingProvider.allCases) { provider in
                             Text(provider.displayName).tag(provider)
                         }
@@ -3210,35 +3235,59 @@ struct LightingCueEditor: View {
                         .textFieldStyle(.roundedBorder)
                 }
             }
-            HStack {
-                Picker("Action", selection: binding(\.action)) {
-                    ForEach(LightkeyCueAction.allCases) { action in
-                        Text(action.displayName).tag(action)
-                    }
+            if cue.provider == .luminescenceOSC {
+                HStack {
+                    TextField("Luminescence cue name", text: binding(\.cueName))
+                        .textFieldStyle(.roundedBorder)
+                    TextField("OSC address", text: optionalStringBinding(\.rawOSCAddress))
+                        .textFieldStyle(.roundedBorder)
                 }
-                .frame(width: 170)
-                TextField(cue.provider == .customOSC ? "Raw OSC address" : "Raw OSC address optional", text: optionalStringBinding(\.rawOSCAddress))
+            } else if cue.provider == .showOffOSC {
+                TextField("Show Off OSC address", text: optionalStringBinding(\.rawOSCAddress))
                     .textFieldStyle(.roundedBorder)
+            } else {
+                HStack {
+                    Picker("Action", selection: binding(\.action)) {
+                        ForEach(LightkeyCueAction.allCases) { action in
+                            Text(action.displayName).tag(action)
+                        }
+                    }
+                    .frame(width: 170)
+                    TextField(cue.provider == .customOSC ? "Raw OSC address" : "Raw OSC address optional", text: optionalStringBinding(\.rawOSCAddress))
+                        .textFieldStyle(.roundedBorder)
+                }
             }
             if cue.provider == .customOSC {
                 Text("Custom OSC sends exactly the raw address above. Use your lighting app's receive port and expected path.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            HStack {
-                TextField("Fade seconds optional", text: optionalDoubleBinding(\.fadeTimeSeconds))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 170)
-                Slider(value: Binding(get: {
-                    cue.intensity ?? 1
-                }, set: { value in
-                    var updated = cue
-                    updated.intensity = value
-                    update(updated)
-                }), in: 0 ... 1)
-                Text("Intensity \(Int(((cue.intensity ?? 1) * 100).rounded()))%")
-                    .font(.caption.monospacedDigit())
-                    .frame(width: 92, alignment: .trailing)
+            if cue.provider == .luminescenceOSC {
+                Text("Luminescence receives /luminescence/cue with the cue name as the first OSC argument.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if cue.provider == .showOffOSC {
+                Text("Show Off receives core OSC on 39051. Notification paths are safe defaults; tokened HTTP writes stay inside Show Off.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if cue.provider != .luminescenceOSC {
+                HStack {
+                    TextField(cue.provider == .showOffOSC ? "Notice seconds optional" : "Fade seconds optional", text: optionalDoubleBinding(\.fadeTimeSeconds))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 170)
+                    Slider(value: Binding(get: {
+                        cue.intensity ?? 1
+                    }, set: { value in
+                        var updated = cue
+                        updated.intensity = value
+                        update(updated)
+                    }), in: 0 ... 1)
+                    Text("Intensity \(Int(((cue.intensity ?? 1) * 100).rounded()))%")
+                        .font(.caption.monospacedDigit())
+                        .frame(width: 92, alignment: .trailing)
+                }
             }
         }
     }
@@ -4400,7 +4449,7 @@ struct ControlButton: View {
                     Image(systemName: systemImage)
                         .font(.system(size: 31, weight: .bold))
                     Text(title)
-                        .font(.system(size: 17, weight: .black, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity, minHeight: 112)
 
@@ -4417,22 +4466,11 @@ struct ControlButton: View {
                 ),
                 in: RoundedRectangle(cornerRadius: 8)
             )
-            .overlay(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        LinearGradient(
-                            colors: [.white.opacity(0.25), .white.opacity(0.035), .clear],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .allowsHitTesting(false)
-            }
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(.white.opacity(0.24), lineWidth: 1)
             )
-            .shadow(color: tint.opacity(0.18), radius: 9, x: 0, y: 4)
+            .shadow(color: tint.opacity(0.10), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
         .help(help)
@@ -4543,11 +4581,6 @@ struct HelpIcon: View {
         .buttonStyle(.plain)
         .help(text)
         .accessibilityLabel(Text("Help: \(text)"))
-        .onHover { hovering in
-            if hovering {
-                isPresented = true
-            }
-        }
         .popover(isPresented: $isPresented, arrowEdge: .top) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {

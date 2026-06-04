@@ -76,7 +76,7 @@ ln -s /Applications "$STAGING_DIR/Applications"
 /usr/bin/hdiutil convert "$TMP_DMG" -format UDZO -imagekey zlib-level=9 -o "$DMG_PATH" >/dev/null
 rm -f "$TMP_DMG"
 
-/usr/bin/codesign --force --sign "$DEAD_AIR_SIGN_IDENTITY" "$DMG_PATH"
+/usr/bin/codesign --force --timestamp --sign "$DEAD_AIR_SIGN_IDENTITY" "$DMG_PATH"
 /usr/bin/codesign --verify --strict "$DMG_PATH"
 
 if [[ "$NOTARIZE" == true ]]; then

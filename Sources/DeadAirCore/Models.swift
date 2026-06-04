@@ -185,6 +185,8 @@ public enum DeadAirAppearanceMode: String, Codable, CaseIterable, Identifiable, 
 public enum ShowSetupPreset: String, Codable, CaseIterable, Identifiable, Sendable {
     case genericDAWVirtualMIDI
     case abletonLightkey
+    case abletonLuminescence
+    case showOffBridge
     case iacLegacyDAW
     case djManual
     case qlabOSC
@@ -196,6 +198,8 @@ public enum ShowSetupPreset: String, Codable, CaseIterable, Identifiable, Sendab
         switch self {
         case .genericDAWVirtualMIDI: "Generic DAW"
         case .abletonLightkey: "Ableton + Lightkey"
+        case .abletonLuminescence: "Ableton + Luminescence"
+        case .showOffBridge: "Show Off Bridge"
         case .iacLegacyDAW: "IAC / Legacy DAW"
         case .djManual: "DJ Manual"
         case .qlabOSC: "QLab / OSC"
@@ -209,6 +213,10 @@ public enum ShowSetupPreset: String, Codable, CaseIterable, Identifiable, Sendab
             "Creates a simple virtual MIDI input for any DAW or controller that can send MIDI notes or CC."
         case .abletonLightkey:
             "Uses Dead Air's virtual MIDI input and enables Lightkey OSC at 127.0.0.1:21600."
+        case .abletonLuminescence:
+            "Uses Dead Air's virtual MIDI input and sends named cue triggers to Luminescence OSC at 127.0.0.1:9001."
+        case .showOffBridge:
+            "Keeps Dead Air local while publishing show notifications to Show Off's OSC server at 127.0.0.1:39051."
         case .iacLegacyDAW:
             "Listens to a specific IAC bus for older DAW routing workflows."
         case .djManual:
@@ -224,6 +232,8 @@ public enum ShowSetupPreset: String, Codable, CaseIterable, Identifiable, Sendab
         switch self {
         case .genericDAWVirtualMIDI: "Generic DAW Virtual MIDI"
         case .abletonLightkey: "Ableton + Lightkey"
+        case .abletonLuminescence: "Ableton + Luminescence"
+        case .showOffBridge: "Show Off Bridge"
         case .iacLegacyDAW: "IAC Legacy DAW"
         case .djManual: "DJ Manual"
         case .qlabOSC: "QLab OSC"
@@ -323,6 +333,8 @@ public enum MIDIMessageType: String, Codable, CaseIterable, Identifiable, Sendab
 
 public enum LightingProvider: String, Codable, CaseIterable, Identifiable, Sendable {
     case lightkeyOSC
+    case luminescenceOSC
+    case showOffOSC
     case customOSC
     case midi
 
@@ -331,6 +343,8 @@ public enum LightingProvider: String, Codable, CaseIterable, Identifiable, Senda
     public var displayName: String {
         switch self {
         case .lightkeyOSC: "Lightkey OSC"
+        case .luminescenceOSC: "Luminescence OSC"
+        case .showOffOSC: "Show Off OSC"
         case .customOSC: "Custom OSC"
         case .midi: "MIDI"
         }
@@ -338,7 +352,7 @@ public enum LightingProvider: String, Codable, CaseIterable, Identifiable, Senda
 
     public var usesOSC: Bool {
         switch self {
-        case .lightkeyOSC, .customOSC: true
+        case .lightkeyOSC, .luminescenceOSC, .showOffOSC, .customOSC: true
         case .midi: false
         }
     }
@@ -426,6 +440,8 @@ public struct LightingCue: Identifiable, Codable, Equatable, Sendable {
     public var fadeTimeSeconds: Double?
     public var intensity: Double?
     public var rawOSCAddress: String?
+    public var oscHostOverride: String?
+    public var oscPortOverride: Int?
     public var midiMessageType: MIDIMessageType
     public var midiChannel: Int
     public var midiNumber: Int
@@ -444,6 +460,8 @@ public struct LightingCue: Identifiable, Codable, Equatable, Sendable {
         fadeTimeSeconds: Double? = nil,
         intensity: Double? = nil,
         rawOSCAddress: String? = nil,
+        oscHostOverride: String? = nil,
+        oscPortOverride: Int? = nil,
         midiMessageType: MIDIMessageType = .noteOn,
         midiChannel: Int = 1,
         midiNumber: Int = 60,
@@ -461,6 +479,8 @@ public struct LightingCue: Identifiable, Codable, Equatable, Sendable {
         self.fadeTimeSeconds = fadeTimeSeconds
         self.intensity = intensity
         self.rawOSCAddress = rawOSCAddress
+        self.oscHostOverride = oscHostOverride
+        self.oscPortOverride = oscPortOverride
         self.midiMessageType = midiMessageType
         self.midiChannel = midiChannel
         self.midiNumber = midiNumber
@@ -1278,6 +1298,27 @@ public extension ShowSetupPreset {
             updated.lighting.defaultProvider = .lightkeyOSC
             updated.lighting.lightkeyHost = "127.0.0.1"
             updated.lighting.lightkeyPort = 21_600
+        case .abletonLuminescence:
+            updated.uiMode = .advanced
+            updated.libraryStorageMode = .managedCopy
+            updated.bedAdvanceMode = .autoPrepareNextOnFadeOut
+            updated.midi.mode = .virtualDestination
+            updated.midi.channel = 16
+            updated.osc.enabled = true
+            updated.lighting.enabled = true
+            updated.lighting.defaultProvider = .luminescenceOSC
+            updated.lighting.lightkeyHost = "127.0.0.1"
+            updated.lighting.lightkeyPort = 9_001
+        case .showOffBridge:
+            updated.uiMode = .advanced
+            updated.libraryStorageMode = .managedCopy
+            updated.bedAdvanceMode = .manualContinuous
+            updated.midi.mode = .virtualDestination
+            updated.osc.enabled = true
+            updated.lighting.enabled = true
+            updated.lighting.defaultProvider = .showOffOSC
+            updated.lighting.lightkeyHost = "127.0.0.1"
+            updated.lighting.lightkeyPort = 39_051
         case .iacLegacyDAW:
             updated.uiMode = .advanced
             updated.libraryStorageMode = .managedCopy

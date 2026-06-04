@@ -22,7 +22,7 @@ case "${1:-}" in
     APP_DIR="$DIST_DIR/$APP_NAME.app"
     ENTITLEMENTS="$ROOT/Entitlements/DeadAir-DeveloperID.entitlements"
     SIGN_IDENTITY="${DEAD_AIR_SIGN_IDENTITY:-Developer ID Application}"
-    CODE_SIGN_OPTIONS=(--options runtime)
+    CODE_SIGN_OPTIONS=(--options runtime --timestamp)
     ;;
   --local|"")
     ;;

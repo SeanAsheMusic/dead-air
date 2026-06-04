@@ -61,10 +61,12 @@ Use this runbook for every notarized beta or release candidate. Record results i
 
 1. Send the Lightkey test cue to `127.0.0.1:21600`.
 2. Confirm Lightkey External Control Log receives the expected cue.
-3. Send a Custom OSC cue to a local UDP/OSC receiver.
-4. Send a lighting MIDI cue to the target virtual or hardware destination.
-5. Confirm lighting-send failures do not interrupt audio.
-6. Confirm global and per-track cue maps trigger as expected.
+3. Start Luminescence's OSC Listener and send a Luminescence OSC test cue to `127.0.0.1:9001` using `/luminescence/cue`.
+4. Run Show Off and send a Show Off OSC notification test cue to `127.0.0.1:39051`.
+5. Send a Custom OSC cue to a local UDP/OSC receiver.
+6. Send a lighting MIDI cue to the target virtual or hardware destination.
+7. Confirm lighting-send failures do not interrupt audio.
+8. Confirm global and per-track cue maps trigger as expected.
 
 ## Privacy And Support
 

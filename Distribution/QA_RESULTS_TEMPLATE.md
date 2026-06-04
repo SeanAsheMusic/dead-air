@@ -47,6 +47,8 @@ Lighting tool:
 | Virtual MIDI or IAC input | Not run | |
 | Inbound OSC on `127.0.0.1:38101` | Not run | |
 | Lightkey OSC on `127.0.0.1:21600` | Not run | |
+| Luminescence OSC on `127.0.0.1:9001` | Not run | |
+| Show Off OSC on `127.0.0.1:39051` | Not run | |
 | Custom OSC to local receiver | Not run | |
 | Lighting MIDI cue | Not run | |
 | Lighting app offline does not block audio | Not run | |

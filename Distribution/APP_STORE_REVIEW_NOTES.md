@@ -23,7 +23,11 @@ Dead Air is a native macOS live-show utility for transition-bed playback and loc
 Dead Air uses localhost OSC for optional show control:
 
 - Inbound OSC: `127.0.0.1:38101`
-- Optional outbound lighting OSC: `127.0.0.1:21600` by default for Lightkey, user-configurable for other OSC receivers
+- Optional outbound lighting/show-control OSC:
+  - Lightkey: `127.0.0.1:21600`
+  - Luminescence: `127.0.0.1:9001`
+  - Show Off: `127.0.0.1:39051`
+  - Custom OSC: user-configurable localhost or IPv4 receiver
 
 Lighting failures never block audio playback.
 

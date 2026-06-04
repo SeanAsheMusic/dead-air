@@ -66,8 +66,21 @@ public final class LightkeyOSCClient: @unchecked Sendable {
             return
         }
 
-        let host = config.lightkeyHost.trimmingCharacters(in: .whitespacesAndNewlines)
-        let port = config.lightkeyPort
+        guard let endpoint = cue.oscEndpoint(config: config) else {
+            completion(
+                LightingCueSendResult(
+                    success: false,
+                    provider: cue.provider,
+                    trigger: trigger,
+                    cueName: cue.name,
+                    target: "unconfigured",
+                    errorMessage: "Missing OSC endpoint."
+                )
+            )
+            return
+        }
+        let host = endpoint.host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let port = endpoint.port
         let packet = OSCMessageBuilder.packet(address: address, arguments: cue.oscArguments)
 
         queue.async {
@@ -113,8 +126,18 @@ public final class LightkeyOSCClient: @unchecked Sendable {
             )
         }
 
-        let host = config.lightkeyHost.trimmingCharacters(in: .whitespacesAndNewlines)
-        let port = config.lightkeyPort
+        guard let endpoint = cue.oscEndpoint(config: config) else {
+            return LightingCueSendResult(
+                success: false,
+                provider: cue.provider,
+                trigger: trigger,
+                cueName: cue.name,
+                target: "unconfigured",
+                errorMessage: "Missing OSC endpoint."
+            )
+        }
+        let host = endpoint.host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let port = endpoint.port
         let packet = OSCMessageBuilder.packet(address: address, arguments: cue.oscArguments)
         let sendError = Self.sendUDP(packet, host: host, port: port)
         return LightingCueSendResult(
