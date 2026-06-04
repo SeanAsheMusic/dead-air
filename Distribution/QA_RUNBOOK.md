@@ -78,6 +78,14 @@ Use this runbook for every notarized beta or release candidate. Record results i
 4. Confirm audio device names, UIDs, MIDI source names, MIDI destination names, cue maps, active profile details, and UUID-like identifiers are absent or marked `[redacted]`.
 5. Export with redaction disabled only on an internal test Mac and confirm the UI setting is explicit.
 
+## Accessibility And Automation
+
+1. Enable Settings > Accessibility > Larger transport controls and confirm the four transport controls grow without clipping at compact and wide window sizes.
+2. Enable Reduce glass effects and Increase status contrast, then verify status, readiness, setup, and settings remain readable in Light, Dark, and Show Dark.
+3. With VoiceOver or Accessibility Inspector, confirm transport buttons expose labels and hints, status pills expose values, and readiness rows say Ready or Needs attention.
+4. Confirm a Computer Use or Hermes-style helper can locate `deadAir.transport.fadeIn`, `deadAir.transport.panicMute`, `deadAir.toolbar.showModeToggle`, `deadAir.setup.sheet`, and `deadAir.readiness.panel`.
+5. Confirm the compact setup flow uses the Step menu and does not create nested scroll traps.
+
 ## Release Decision
 
 Release only if all P0 rows pass, no unresolved P1 issue can cause show audio failure, and the final artifact is the notarized DMG created from the exact SHA whose CI and CodeQL are green.

@@ -67,6 +67,7 @@ For fast setup, see [QUICKSTART.md](QUICKSTART.md). For operator instructions, s
 - More native macOS interface treatment across the main window, Setup Assistant, and Settings
 - Native macOS toolbar actions for Import, Save Playlist, Cue Map, Setup Assistant, Help, Settings, Keep in Menu Bar, and Show Mode
 - Current Bed panel for fast operator confirmation before showtime
+- Accessibility settings for larger transport controls, reduced glass effects, higher status contrast, and stable automation identifiers for local helpers
 
 ## V4 Show Cue / Connector Additions
 

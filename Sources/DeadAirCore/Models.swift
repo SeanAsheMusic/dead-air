@@ -1147,6 +1147,37 @@ public struct PowerConfig: Codable, Equatable, Sendable {
     }
 }
 
+public struct AccessibilityConfig: Codable, Equatable, Sendable {
+    public var largerTransportControls: Bool
+    public var reduceGlassEffects: Bool
+    public var increaseStatusContrast: Bool
+
+    public init(
+        largerTransportControls: Bool = false,
+        reduceGlassEffects: Bool = false,
+        increaseStatusContrast: Bool = false
+    ) {
+        self.largerTransportControls = largerTransportControls
+        self.reduceGlassEffects = reduceGlassEffects
+        self.increaseStatusContrast = increaseStatusContrast
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case largerTransportControls
+        case reduceGlassEffects
+        case increaseStatusContrast
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            largerTransportControls: try container.decodeIfPresent(Bool.self, forKey: .largerTransportControls) ?? false,
+            reduceGlassEffects: try container.decodeIfPresent(Bool.self, forKey: .reduceGlassEffects) ?? false,
+            increaseStatusContrast: try container.decodeIfPresent(Bool.self, forKey: .increaseStatusContrast) ?? false
+        )
+    }
+}
+
 public struct AppConfig: Codable, Equatable, Sendable {
     public var version: String
     public var showModeArmed: Bool
@@ -1162,6 +1193,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var audio: AudioConfig
     public var logging: LoggingConfig
     public var power: PowerConfig
+    public var accessibility: AccessibilityConfig
     public var lighting: LightingConfig
     public var selectedBedID: UUID?
     public var activeProfileID: UUID?
@@ -1181,6 +1213,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         audio: AudioConfig = AudioConfig(),
         logging: LoggingConfig = LoggingConfig(),
         power: PowerConfig = PowerConfig(),
+        accessibility: AccessibilityConfig = AccessibilityConfig(),
         lighting: LightingConfig = LightingConfig(),
         selectedBedID: UUID? = nil,
         activeProfileID: UUID? = nil
@@ -1199,6 +1232,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         self.audio = audio
         self.logging = logging
         self.power = power
+        self.accessibility = accessibility
         self.lighting = lighting
         self.selectedBedID = selectedBedID
         self.activeProfileID = activeProfileID
@@ -1219,6 +1253,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         case audio
         case logging
         case power
+        case accessibility
         case lighting
         case selectedBedID
         case activeProfileID
@@ -1241,6 +1276,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
             audio: try container.decodeIfPresent(AudioConfig.self, forKey: .audio) ?? AudioConfig(),
             logging: try container.decodeIfPresent(LoggingConfig.self, forKey: .logging) ?? LoggingConfig(),
             power: try container.decodeIfPresent(PowerConfig.self, forKey: .power) ?? PowerConfig(),
+            accessibility: try container.decodeIfPresent(AccessibilityConfig.self, forKey: .accessibility) ?? AccessibilityConfig(),
             lighting: try container.decodeIfPresent(LightingConfig.self, forKey: .lighting) ?? LightingConfig(),
             selectedBedID: try container.decodeIfPresent(UUID.self, forKey: .selectedBedID),
             activeProfileID: try container.decodeIfPresent(UUID.self, forKey: .activeProfileID)
@@ -1263,6 +1299,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         try container.encode(audio, forKey: .audio)
         try container.encode(logging, forKey: .logging)
         try container.encode(power, forKey: .power)
+        try container.encode(accessibility, forKey: .accessibility)
         try container.encode(lighting, forKey: .lighting)
         try container.encodeIfPresent(selectedBedID, forKey: .selectedBedID)
         try container.encodeIfPresent(activeProfileID, forKey: .activeProfileID)

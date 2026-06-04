@@ -33,6 +33,9 @@ func runChecks() throws {
     try expect(!config.hasCompletedOnboarding, "onboarding defaults incomplete")
     try expect(config.uiMode == .simple, "default UI mode is simple")
     try expect(config.appearanceMode == .system, "default appearance follows system")
+    try expect(!config.accessibility.largerTransportControls, "default large transport controls off")
+    try expect(!config.accessibility.reduceGlassEffects, "default reduced glass off")
+    try expect(!config.accessibility.increaseStatusContrast, "default status contrast follows standard UI")
     try expect(config.setupPreset == .abletonLightkey, "default setup preset is guided pro path")
     try expect(config.audio.outputLeftChannel == 1, "default left output channel")
     try expect(config.audio.outputRightChannel == 2, "default right output channel")
@@ -71,6 +74,16 @@ func runChecks() throws {
     let legacyConfig = try JSONDecoder().decode(AppConfig.self, from: legacyConfigJSON)
     try expect(!legacyConfig.lighting.enabled, "legacy config defaults lighting disabled")
     try expect(legacyConfig.lighting.lightkeyPort == 21_600, "legacy config defaults Lightkey port")
+    try expect(legacyConfig.accessibility == AccessibilityConfig(), "legacy config defaults accessibility options")
+
+    let accessibilityConfig = AccessibilityConfig(largerTransportControls: true, reduceGlassEffects: true, increaseStatusContrast: true)
+    let accessibilityRoundTrip = try JSONDecoder().decode(AccessibilityConfig.self, from: JSONEncoder().encode(accessibilityConfig))
+    try expect(accessibilityRoundTrip == accessibilityConfig, "accessibility config round trips")
+
+    let automationIDs = DeadAirAutomationID.allCritical
+    try expect(Set(automationIDs).count == automationIDs.count, "automation identifiers are unique")
+    try expect(automationIDs.allSatisfy { $0.hasPrefix("deadAir.") }, "automation identifiers are namespaced")
+    try expect(automationIDs.allSatisfy { !$0.contains(" ") }, "automation identifiers are automation-safe")
 
     let legacyBedJSON = try fixtureData("""
     {"id":"00000000-0000-0000-0000-000000000001","title":"Legacy","fileName":"legacy.wav","enabled":true,"seamlessLoop":true,"createdAt":"2026-05-11T00:00:00Z"}

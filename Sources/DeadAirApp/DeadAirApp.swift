@@ -156,6 +156,7 @@ struct DeadAirApp: App {
         WindowGroup("Dead Air", id: "main") {
             ContentView()
                 .environmentObject(model)
+                .environment(\.deadAirAccessibility, model.config.accessibility)
                 .frame(minWidth: 480, minHeight: 420)
                 .task {
                     model.start()
@@ -198,6 +199,7 @@ struct DeadAirApp: App {
         Settings {
             DeadAirSettingsWindow()
                 .environmentObject(model)
+                .environment(\.deadAirAccessibility, model.config.accessibility)
                 .frame(minWidth: 480, idealWidth: 780, minHeight: 420, idealHeight: 620)
                 .preferredColorScheme(model.preferredColorScheme)
                 .task {
@@ -904,6 +906,21 @@ final class DeadAirModel: ObservableObject {
 
     func setAppearanceMode(_ mode: DeadAirAppearanceMode) {
         config.appearanceMode = mode
+        saveConfig()
+    }
+
+    func setLargerTransportControls(_ enabled: Bool) {
+        config.accessibility.largerTransportControls = enabled
+        saveConfig()
+    }
+
+    func setReduceGlassEffects(_ enabled: Bool) {
+        config.accessibility.reduceGlassEffects = enabled
+        saveConfig()
+    }
+
+    func setIncreaseStatusContrast(_ enabled: Bool) {
+        config.accessibility.increaseStatusContrast = enabled
         saveConfig()
     }
 
@@ -1965,6 +1982,7 @@ struct ContentView: View {
                 model.isSetupWizardPresented
             }, set: { model.isSetupWizardPresented = $0 }))
                 .environmentObject(model)
+                .environment(\.deadAirAccessibility, model.config.accessibility)
                 .frame(minWidth: 480, idealWidth: 920, minHeight: 420, idealHeight: 640)
                 .preferredColorScheme(model.preferredColorScheme)
         }
@@ -1973,6 +1991,7 @@ struct ContentView: View {
         }, set: { model.isHelpCenterPresented = $0 })) {
             HelpCenterView()
                 .environmentObject(model)
+                .environment(\.deadAirAccessibility, model.config.accessibility)
                 .frame(minWidth: 460, idealWidth: 760, minHeight: 400, idealHeight: 620)
                 .preferredColorScheme(model.preferredColorScheme)
         }
@@ -1986,6 +2005,7 @@ struct ContentView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .accessibilityIdentifier(DeadAirAutomationID.toolbarModePicker)
             }
 
             ToolbarItemGroup {
@@ -2029,14 +2049,19 @@ struct ContentView: View {
                 } label: {
                     Label("Actions", systemImage: "ellipsis.circle")
                 }
+                .accessibilityIdentifier(DeadAirAutomationID.toolbarActionsMenu)
 
                 Button {
                     model.setShowModeArmed(!model.config.showModeArmed)
                 } label: {
                     Label(model.config.showModeArmed ? "Disarm Show" : "Arm Show", systemImage: model.config.showModeArmed ? "shield.slash" : "checkmark.shield")
                 }
+                .accessibilityIdentifier(DeadAirAutomationID.toolbarShowModeToggle)
+                .accessibilityLabel(model.config.showModeArmed ? "Disarm Show Mode" : "Arm Show Mode")
+                .accessibilityHint("Controls whether external MIDI and OSC can start audio.")
             }
         }
+        .accessibilityIdentifier(DeadAirAutomationID.root)
     }
 
     @ViewBuilder
@@ -2050,6 +2075,7 @@ struct ContentView: View {
                 }
                 .padding(14)
             }
+            .accessibilityIdentifier(DeadAirAutomationID.mainSurface)
         } else {
             HStack(alignment: .top, spacing: 0) {
                 MainControlsView()
@@ -2061,6 +2087,7 @@ struct ContentView: View {
             }
             .padding(14)
             .gaplessPanelStyle()
+            .accessibilityIdentifier(DeadAirAutomationID.mainSurface)
         }
     }
 
@@ -2249,9 +2276,12 @@ struct SetupWizardView: View {
                 regularWizardLayout
             }
         }
-        .background {
-            RoundedRectangle(cornerRadius: 18)
-                .fill(.regularMaterial)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityLabel("Setup Assistant")
+                .accessibilityIdentifier(DeadAirAutomationID.setupSheet)
         }
         .onAppear {
             preset = model.config.setupPreset
@@ -2280,7 +2310,7 @@ struct SetupWizardView: View {
                 Divider()
 
                 ScrollView {
-                    stepContent
+                    stepContent(compact: false)
                         .padding(26)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
@@ -2304,8 +2334,9 @@ struct SetupWizardView: View {
             Divider()
 
             ScrollView {
-                stepContent
-                    .padding(14)
+                stepContent(compact: true)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
             }
 
@@ -2336,6 +2367,7 @@ struct SetupWizardView: View {
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .frame(maxWidth: 180)
+                .accessibilityIdentifier(DeadAirAutomationID.setupStepPicker)
             }
 
             ViewThatFits(in: .horizontal) {
@@ -2429,10 +2461,10 @@ struct SetupWizardView: View {
     }
 
     @ViewBuilder
-    private var stepContent: some View {
+    private func stepContent(compact: Bool) -> some View {
         switch step {
         case .preset:
-            presetStep
+            presetStep(compact: compact)
         case .audio:
             audioStep
         case .files:
@@ -2444,33 +2476,54 @@ struct SetupWizardView: View {
         }
     }
 
-    private var presetStep: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            WizardInsightRow(
-                title: "Start here",
-                detail: "Choose the closest rig. The next screens make every important choice visible, so you can adjust audio, inbound control, and connector behavior before saving.",
-                systemImage: "checklist.checked"
-            )
+    private func presetStep(compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 10 : 18) {
+            if compact {
+                Text("Pick the closest rig. You can adjust audio, inbound control, and connectors before saving.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            LazyVGrid(columns: adaptivePresetColumns, spacing: 12) {
-                ForEach(ShowSetupPreset.allCases) { option in
-                    WizardPresetCard(
-                        preset: option,
-                        isSelected: preset == option,
-                        isRecommended: option == .abletonLightkey
-                    ) {
-                        preset = option
-                        profileName = option.profileName
-                        model.applySetupPreset(option)
+                LazyVStack(spacing: 8) {
+                    ForEach(ShowSetupPreset.allCases) { option in
+                        CompactPresetRow(
+                            preset: option,
+                            isSelected: preset == option,
+                            isRecommended: option == .abletonLightkey
+                        ) {
+                            preset = option
+                            profileName = option.profileName
+                            model.applySetupPreset(option)
+                        }
                     }
                 }
-            }
+            } else {
+                WizardInsightRow(
+                    title: "Start here",
+                    detail: "Choose the closest rig. The next screens make every important choice visible, so you can adjust audio, inbound control, and connector behavior before saving.",
+                    systemImage: "checklist.checked"
+                )
 
-            WizardInsightRow(
-                title: "Selected setup",
-                detail: preset.helpText,
-                systemImage: preset.systemIcon
-            )
+                LazyVGrid(columns: adaptivePresetColumns, spacing: 12) {
+                    ForEach(ShowSetupPreset.allCases) { option in
+                        WizardPresetCard(
+                            preset: option,
+                            isSelected: preset == option,
+                            isRecommended: option == .abletonLightkey
+                        ) {
+                            preset = option
+                            profileName = option.profileName
+                            model.applySetupPreset(option)
+                        }
+                    }
+                }
+
+                WizardInsightRow(
+                    title: "Selected setup",
+                    detail: preset.helpText,
+                    systemImage: preset.systemIcon
+                )
+            }
         }
     }
 
@@ -2727,6 +2780,7 @@ struct SetupWizardView: View {
             Button("Cancel") {
                 isPresented = false
             }
+            .accessibilityIdentifier(DeadAirAutomationID.setupCancel)
 
             Spacer()
 
@@ -2734,6 +2788,7 @@ struct SetupWizardView: View {
                 moveStep(-1)
             }
             .disabled(currentStepIndex == 0)
+            .accessibilityIdentifier(DeadAirAutomationID.setupBack)
 
             Button(currentStepIndex == SetupWizardStep.allCases.count - 1 ? "Save Setup" : "Continue") {
                 if currentStepIndex == SetupWizardStep.allCases.count - 1 {
@@ -2745,6 +2800,7 @@ struct SetupWizardView: View {
             }
             .keyboardShortcut(.defaultAction)
             .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier(DeadAirAutomationID.setupContinue)
         }
     }
 
@@ -2860,6 +2916,60 @@ private struct WizardPresetCard: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct CompactPresetRow: View {
+    let preset: ShowSetupPreset
+    let isSelected: Bool
+    let isRecommended: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: preset.systemIcon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(preset.displayName)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        if isRecommended {
+                            Text("Recommended")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    Text(preset.shortSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? Color.accentColor.opacity(0.55) : Color.secondary.opacity(0.12), lineWidth: isSelected ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(preset.displayName)
+        .accessibilityValue(isSelected ? "Selected" : "")
+        .accessibilityHint(preset.helpText)
     }
 }
 
@@ -3103,14 +3213,14 @@ struct HeaderView: View {
 
             Spacer()
 
-            StatusPill(title: "State", value: model.state.displayName, tone: stateTone, help: "Current playback state. Degraded means the app stayed alive but needs attention.")
+            StatusPill(title: "State", value: model.state.displayName, tone: stateTone, help: "Current playback state. Degraded means the app stayed alive but needs attention.", automationID: DeadAirAutomationID.statusState)
             if showAllStatus {
-                StatusPill(title: "MIDI", value: model.midiOnline ? "Online" : "Offline", tone: model.midiOnline ? .good : .bad, help: "Shows whether Dead Air is listening for MIDI on its virtual input or selected IAC sources.")
-                StatusPill(title: "OSC", value: model.oscOnline ? "On" : "Off", tone: model.oscOnline ? .good : .neutral, help: "Shows whether localhost OSC is listening on the configured port.")
-                StatusPill(title: "Connectors", value: model.lightingStatusValue, tone: model.lightingStatusTone, help: "Outbound Lightkey, Luminescence, Show Off, Custom OSC, or MIDI cue status. Connector failures are logged and do not stop audio.")
-                StatusPill(title: "Heartbeat", value: model.heartbeatStatus, tone: model.heartbeatStatus == "Lost" ? .bad : .neutral, help: "Optional AbleSet supervision signal. If it stops, Dead Air can react based on the heartbeat policy.")
+                StatusPill(title: "MIDI", value: model.midiOnline ? "Online" : "Offline", tone: model.midiOnline ? .good : .bad, help: "Shows whether Dead Air is listening for MIDI on its virtual input or selected IAC sources.", automationID: DeadAirAutomationID.statusMIDI)
+                StatusPill(title: "OSC", value: model.oscOnline ? "On" : "Off", tone: model.oscOnline ? .good : .neutral, help: "Shows whether localhost OSC is listening on the configured port.", automationID: DeadAirAutomationID.statusOSC)
+                StatusPill(title: "Connectors", value: model.lightingStatusValue, tone: model.lightingStatusTone, help: "Outbound Lightkey, Luminescence, Show Off, Custom OSC, or MIDI cue status. Connector failures are logged and do not stop audio.", automationID: DeadAirAutomationID.statusConnectors)
+                StatusPill(title: "Heartbeat", value: model.heartbeatStatus, tone: model.heartbeatStatus == "Lost" ? .bad : .neutral, help: "Optional AbleSet supervision signal. If it stops, Dead Air can react based on the heartbeat policy.", automationID: DeadAirAutomationID.statusHeartbeat)
             } else {
-                StatusPill(title: "Control", value: model.controlSummary, tone: model.midiOnline || model.oscOnline ? .good : .bad, help: "Current MIDI and OSC ingress state.")
+                StatusPill(title: "Control", value: model.controlSummary, tone: model.midiOnline || model.oscOnline ? .good : .bad, help: "Current MIDI and OSC ingress state.", automationID: DeadAirAutomationID.statusControl)
             }
         }
     }
@@ -3164,18 +3274,18 @@ struct MainControlsView: View {
 
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    ControlButton(title: "Fade In", systemImage: "speaker.wave.2.fill", tint: StagePalette.fadeIn, help: "Fade the selected bed up to the target level without restarting it if it is already audible.") {
+                    ControlButton(title: "Fade In", systemImage: "speaker.wave.2.fill", tint: StagePalette.fadeIn, help: "Fade the selected bed up to the target level without restarting it if it is already audible.", automationID: DeadAirAutomationID.transportFadeIn) {
                         model.uiCommand(.fadeIn)
                     }
-                    ControlButton(title: "Fade Out", systemImage: "speaker.slash.fill", tint: StagePalette.fadeOut, help: "Fade the active bed down to silence while keeping the engine ready.") {
+                    ControlButton(title: "Fade Out", systemImage: "speaker.slash.fill", tint: StagePalette.fadeOut, help: "Fade the active bed down to silence while keeping the engine ready.", automationID: DeadAirAutomationID.transportFadeOut) {
                         model.uiCommand(.fadeOut)
                     }
                 }
                 HStack(spacing: 12) {
-                    ControlButton(title: "Next Bed", systemImage: "forward.fill", tint: StagePalette.nextBed, help: "Select the next enabled bed. If audio is playing, Dead Air crossfades to the next bed.") {
+                    ControlButton(title: "Next Bed", systemImage: "forward.fill", tint: StagePalette.nextBed, help: "Select the next enabled bed. If audio is playing, Dead Air crossfades to the next bed.", automationID: DeadAirAutomationID.transportNextBed) {
                         model.uiCommand(.nextBed)
                     }
-                    ControlButton(title: "Panic Mute", systemImage: "exclamationmark.octagon.fill", tint: StagePalette.panic, help: "Immediate hard mute. This has the highest priority and cancels any active fade.") {
+                    ControlButton(title: "Panic Mute", systemImage: "exclamationmark.octagon.fill", tint: StagePalette.panic, help: "Immediate hard mute. This has the highest priority and cancels any active fade.", automationID: DeadAirAutomationID.transportPanicMute) {
                         model.uiCommand(.panic)
                     }
                 }
@@ -3231,6 +3341,10 @@ struct NowPlayingCard: View {
         }
         .padding(12)
         .liquidGlassTile()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Current bed")
+        .accessibilityValue("\(model.activeBed?.title ?? "No bed loaded"), \(model.state.displayName), output \(model.selectedOutputName)")
+        .accessibilityIdentifier(DeadAirAutomationID.nowPlaying)
     }
 
     private var stateColor: Color {
@@ -3352,6 +3466,10 @@ struct DeadAirSettingsWindow: View {
                 .tabItem {
                     Label("Diagnostics", systemImage: "stethoscope")
                 }
+            AccessibilitySettingsTab()
+                .tabItem {
+                    Label("Accessibility", systemImage: "accessibility")
+                }
             AdvancedSettingsTab()
                 .tabItem {
                     Label("Advanced", systemImage: "slider.horizontal.3")
@@ -3359,6 +3477,7 @@ struct DeadAirSettingsWindow: View {
         }
         .padding(16)
         .stageGlassBackground()
+        .accessibilityIdentifier(DeadAirAutomationID.settingsWindow)
     }
 }
 
@@ -3898,6 +4017,60 @@ struct AdvancedSettingsTab: View {
     }
 }
 
+struct AccessibilitySettingsTab: View {
+    @EnvironmentObject private var model: DeadAirModel
+
+    var body: some View {
+        ScrollView {
+            SettingsCard(title: "Accessibility", systemImage: "accessibility", help: "Visual and automation support for show operators, VoiceOver, and trusted local assistants.") {
+                Toggle("Larger transport controls", isOn: Binding(get: {
+                    model.config.accessibility.largerTransportControls
+                }, set: { model.setLargerTransportControls($0) }))
+                .accessibilityHint("Increases the size of Fade In, Fade Out, Next Bed, and Panic Mute buttons.")
+
+                Toggle("Reduce glass effects", isOn: Binding(get: {
+                    model.config.accessibility.reduceGlassEffects
+                }, set: { model.setReduceGlassEffects($0) }))
+                .accessibilityHint("Uses flatter native backgrounds and follows the system Reduce Transparency setting.")
+
+                Toggle("Increase status contrast", isOn: Binding(get: {
+                    model.config.accessibility.increaseStatusContrast
+                }, set: { model.setIncreaseStatusContrast($0) }))
+                .accessibilityHint("Strengthens status outlines and readiness panels for low-vision and show-lighting conditions.")
+
+                Divider()
+
+                Text("Automation")
+                    .font(.headline)
+                Text("Critical controls and status surfaces expose stable accessibility identifiers for VoiceOver, macOS automation, Computer Use, and local agents such as Hermes. These identifiers are always enabled and do not reveal private show data.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                    automationRow("Fade In", DeadAirAutomationID.transportFadeIn)
+                    automationRow("Fade Out", DeadAirAutomationID.transportFadeOut)
+                    automationRow("Panic Mute", DeadAirAutomationID.transportPanicMute)
+                    automationRow("Show Mode", DeadAirAutomationID.toolbarShowModeToggle)
+                    automationRow("Readiness", DeadAirAutomationID.readinessPanel)
+                    automationRow("Setup", DeadAirAutomationID.setupSheet)
+                }
+                .font(.caption.monospaced())
+            }
+            .accessibilityIdentifier(DeadAirAutomationID.settingsAccessibility)
+        }
+    }
+
+    private func automationRow(_ label: String, _ identifier: String) -> some View {
+        GridRow {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Text(identifier)
+                .textSelection(.enabled)
+        }
+    }
+}
+
 struct SettingsPanel: View {
     @EnvironmentObject private var model: DeadAirModel
 
@@ -4313,6 +4486,7 @@ struct LibraryView: View {
                     } label: {
                         Label("Import", systemImage: "square.and.arrow.down")
                     }
+                    .accessibilityIdentifier(DeadAirAutomationID.playlistImport)
                     Button {
                         model.savePlaylistInApp()
                     } label: {
@@ -4370,6 +4544,7 @@ struct LibraryView: View {
             HStack(spacing: 10) {
                 TextField("Search title, artist, key, tags, notes", text: $model.librarySearch)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier(DeadAirAutomationID.playlistSearch)
                 Picker("Filter", selection: $model.libraryFilter) {
                     ForEach(LibraryFilter.allCases) { filter in
                         Text(filter.displayName).tag(filter)
@@ -4377,6 +4552,7 @@ struct LibraryView: View {
                 }
                 .pickerStyle(.menu)
                 .frame(width: 132)
+                .accessibilityIdentifier(DeadAirAutomationID.playlistFilter)
             }
 
             List(selection: Binding(get: {
@@ -4396,6 +4572,7 @@ struct LibraryView: View {
                     }
                 }
             }
+            .accessibilityIdentifier(DeadAirAutomationID.playlistList)
             .overlay {
                 if model.beds.isEmpty || model.filteredBeds.isEmpty || isDropTargeted {
                     RoundedRectangle(cornerRadius: 8)
@@ -4762,6 +4939,9 @@ struct ReadinessPanel: View {
                 }
                 .padding(8)
                 .liquidGlassTile()
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(item.title)
+                .accessibilityValue(item.isReady ? "Ready. \(item.detail)" : "Needs attention. \(item.detail)")
             }
 
             Button {
@@ -4771,6 +4951,7 @@ struct ReadinessPanel: View {
                     .frame(maxWidth: .infinity)
             }
             .help("Copies the Ableton/AbleSet MIDI and OSC cue map to the clipboard.")
+            .accessibilityIdentifier(DeadAirAutomationID.readinessCopyCueMap)
 
             HStack {
                 Button {
@@ -4780,6 +4961,7 @@ struct ReadinessPanel: View {
                         .frame(maxWidth: .infinity)
                 }
                 .help("Sends the first enabled outbound cue or a sample OSC/MIDI cue.")
+                .accessibilityIdentifier(DeadAirAutomationID.readinessTestConnector)
 
                 Button {
                     model.exportSupportBundle()
@@ -4788,8 +4970,11 @@ struct ReadinessPanel: View {
                         .frame(maxWidth: .infinity)
                 }
                 .help("Exports redacted config, readiness, logs, audio devices, and connector state for troubleshooting.")
+                .accessibilityIdentifier(DeadAirAutomationID.readinessExportSupport)
             }
         }
+        .accessibilityIdentifier(DeadAirAutomationID.readinessPanel)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -4819,13 +5004,18 @@ struct MenuBarControls: View {
                 .lineLimit(1)
             Divider()
             Button("Fade In") { model.uiCommand(.fadeIn) }
+                .accessibilityIdentifier(DeadAirAutomationID.menuBarFadeIn)
             Button("Fade Out") { model.uiCommand(.fadeOut) }
+                .accessibilityIdentifier(DeadAirAutomationID.menuBarFadeOut)
             Button("Next Bed") { model.uiCommand(.nextBed) }
+                .accessibilityIdentifier(DeadAirAutomationID.menuBarNextBed)
             Button("Panic Mute") { model.uiCommand(.panic) }
+                .accessibilityIdentifier(DeadAirAutomationID.menuBarPanicMute)
             Divider()
             Toggle("Show Mode", isOn: Binding(get: {
                 model.config.showModeArmed
             }, set: { model.setShowModeArmed($0) }))
+            .accessibilityHint("Controls whether external MIDI and OSC can start audio.")
             Button("Open Dead Air") {
                 NSApplication.shared.activate(ignoringOtherApps: true)
                 openWindow(id: "main")
@@ -4843,14 +5033,18 @@ struct MenuBarControls: View {
         }
         .padding(8)
         .frame(width: 260)
+        .accessibilityIdentifier(DeadAirAutomationID.menuBarControls)
     }
 }
 
 struct ControlButton: View {
+    @Environment(\.deadAirAccessibility) private var appAccessibility
+
     let title: String
     let systemImage: String
     let tint: Color
     let help: String
+    let automationID: String
     let action: () -> Void
 
     var body: some View {
@@ -4858,13 +5052,13 @@ struct ControlButton: View {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 10) {
                     Image(systemName: systemImage)
-                        .font(.system(size: 31, weight: .bold))
+                        .font(.system(size: iconSize, weight: .bold))
                         .foregroundStyle(tint)
                     Text(title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: titleSize, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
-                .frame(maxWidth: .infinity, minHeight: 112)
+                .frame(maxWidth: .infinity, minHeight: controlHeight)
 
                 HelpIcon(help)
                     .foregroundStyle(.secondary)
@@ -4883,10 +5077,27 @@ struct ControlButton: View {
         }
         .buttonStyle(.plain)
         .help(help)
+        .accessibilityLabel(title)
+        .accessibilityHint(help)
+        .accessibilityIdentifier(automationID)
+    }
+
+    private var controlHeight: CGFloat {
+        appAccessibility.largerTransportControls ? 142 : 112
+    }
+
+    private var iconSize: CGFloat {
+        appAccessibility.largerTransportControls ? 38 : 31
+    }
+
+    private var titleSize: CGFloat {
+        appAccessibility.largerTransportControls ? 18 : 16
     }
 }
 
 struct StatusPill: View {
+    @Environment(\.deadAirAccessibility) private var appAccessibility
+
     enum Tone {
         case good
         case neutral
@@ -4897,6 +5108,7 @@ struct StatusPill: View {
     let value: String
     let tone: Tone
     let help: String
+    let automationID: String
 
     var body: some View {
         HStack(spacing: 8) {
@@ -4917,9 +5129,14 @@ struct StatusPill: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.white.opacity(0.13), lineWidth: 1)
+                .stroke(Color.secondary.opacity(appAccessibility.increaseStatusContrast ? 0.36 : 0.13), lineWidth: appAccessibility.increaseStatusContrast ? 1.5 : 1)
         )
         .help(help)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
+        .accessibilityValue(value)
+        .accessibilityHint(help)
+        .accessibilityIdentifier(automationID)
     }
 
     private var background: Color {
@@ -5022,27 +5239,46 @@ enum StagePalette {
     static let panic = Color(red: 0.82, green: 0.26, blue: 0.33)
 }
 
+private struct DeadAirAccessibilityKey: EnvironmentKey {
+    static let defaultValue = AccessibilityConfig()
+}
+
+extension EnvironmentValues {
+    var deadAirAccessibility: AccessibilityConfig {
+        get { self[DeadAirAccessibilityKey.self] }
+        set { self[DeadAirAccessibilityKey.self] = newValue }
+    }
+}
+
 struct StageGlassBackgroundView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.deadAirAccessibility) private var appAccessibility
 
     var body: some View {
         ZStack {
             Color(nsColor: .windowBackgroundColor)
-            LinearGradient(
-                colors: baseColors,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            LinearGradient(
-                colors: [
-                    StagePalette.fadeOut.opacity(colorScheme == .dark ? 0.025 : 0.035),
-                    .clear,
-                    StagePalette.fadeIn.opacity(colorScheme == .dark ? 0.02 : 0.035)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            if !reduceEffects {
+                LinearGradient(
+                    colors: baseColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                LinearGradient(
+                    colors: [
+                        StagePalette.fadeOut.opacity(colorScheme == .dark ? 0.025 : 0.035),
+                        .clear,
+                        StagePalette.fadeIn.opacity(colorScheme == .dark ? 0.02 : 0.035)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
         }
+    }
+
+    private var reduceEffects: Bool {
+        reduceTransparency || appAccessibility.reduceGlassEffects
     }
 
     private var baseColors: [Color] {
@@ -5059,6 +5295,101 @@ struct StageGlassBackgroundView: View {
     }
 }
 
+private struct GlassHeaderModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.deadAirAccessibility) private var appAccessibility
+
+    func body(content: Content) -> some View {
+        content
+            .background(reduceEffects ? Color(nsColor: .windowBackgroundColor) : Color.clear)
+            .background {
+                if !reduceEffects {
+                    Rectangle().fill(.regularMaterial)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.secondary.opacity(appAccessibility.increaseStatusContrast ? 0.30 : 0.12))
+                    .frame(height: appAccessibility.increaseStatusContrast ? 1.5 : 1)
+            }
+    }
+
+    private var reduceEffects: Bool {
+        reduceTransparency || appAccessibility.reduceGlassEffects
+    }
+}
+
+private struct LiquidGlassPanelModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.deadAirAccessibility) private var appAccessibility
+
+    func body(content: Content) -> some View {
+        content
+            .background(panelFill, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.secondary.opacity(appAccessibility.increaseStatusContrast ? 0.34 : 0.12), lineWidth: appAccessibility.increaseStatusContrast ? 1.5 : 1)
+            )
+            .shadow(color: reduceEffects ? .clear : .black.opacity(0.07), radius: 8, x: 0, y: 3)
+    }
+
+    private var reduceEffects: Bool {
+        reduceTransparency || appAccessibility.reduceGlassEffects
+    }
+
+    private var panelFill: Color {
+        reduceEffects ? Color(nsColor: .controlBackgroundColor) : Color(nsColor: .controlBackgroundColor).opacity(0.10)
+    }
+}
+
+private struct LiquidGlassTileModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.deadAirAccessibility) private var appAccessibility
+
+    func body(content: Content) -> some View {
+        content
+            .background(tileFill, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.secondary.opacity(appAccessibility.increaseStatusContrast ? 0.30 : 0.10), lineWidth: appAccessibility.increaseStatusContrast ? 1.35 : 1)
+            )
+    }
+
+    private var reduceEffects: Bool {
+        reduceTransparency || appAccessibility.reduceGlassEffects
+    }
+
+    private var tileFill: Color {
+        reduceEffects ? Color(nsColor: .controlBackgroundColor) : Color(nsColor: .controlBackgroundColor).opacity(0.08)
+    }
+}
+
+private struct StatusGlassTileModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.deadAirAccessibility) private var appAccessibility
+    let tint: Color
+
+    func body(content: Content) -> some View {
+        content
+            .background(tint.opacity(appAccessibility.increaseStatusContrast ? 0.22 : 0.12), in: RoundedRectangle(cornerRadius: 8))
+            .background {
+                if reduceEffects {
+                    RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor))
+                } else {
+                    RoundedRectangle(cornerRadius: 8).fill(.thinMaterial)
+                }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(tint.opacity(appAccessibility.increaseStatusContrast ? 0.45 : 0.20), lineWidth: appAccessibility.increaseStatusContrast ? 1.5 : 1)
+            )
+    }
+
+    private var reduceEffects: Bool {
+        reduceTransparency || appAccessibility.reduceGlassEffects
+    }
+}
+
 extension View {
     func stageGlassBackground() -> some View {
         self.background {
@@ -5068,44 +5399,19 @@ extension View {
     }
 
     func glassHeader() -> some View {
-        self
-            .background(.regularMaterial)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.12))
-                    .frame(height: 1)
-            }
+        modifier(GlassHeaderModifier())
     }
 
     func liquidGlassPanel() -> some View {
-        self
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.07), radius: 8, x: 0, y: 3)
+        modifier(LiquidGlassPanelModifier())
     }
 
     func liquidGlassTile() -> some View {
-        self
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.secondary.opacity(0.10), lineWidth: 1)
-            )
+        modifier(LiquidGlassTileModifier())
     }
 
     func statusGlassTile(tint: Color) -> some View {
-        self
-            .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(tint.opacity(0.20), lineWidth: 1)
-            )
+        modifier(StatusGlassTileModifier(tint: tint))
     }
 
     func gaplessPanelStyle() -> some View {
