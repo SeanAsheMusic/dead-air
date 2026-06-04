@@ -29,8 +29,10 @@ jobs:
         with:
           languages: swift
 
-      - name: Build
-        run: swift build -c release
+      - name: Build analyzed Swift targets
+        run: |
+          swift build --target DeadAirCore
+          swift build --product DeadAirChecks
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
