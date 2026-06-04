@@ -3666,23 +3666,40 @@ struct FadeTimeSlider: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                FormLabel(title, help: help)
-                Spacer()
-                Text(formattedTime(milliseconds))
-                    .font(.system(.caption, design: .monospaced).weight(.bold))
-                    .foregroundStyle(.primary)
-            }
-            Slider(
-                value: Binding(
-                    get: { Double(milliseconds) / 1000.0 },
-                    set: { update(Int(($0 * 1000).rounded(.toNearestOrAwayFromZero))) }
-                ),
-                in: Double(range.lowerBound) / 1000.0 ... Double(range.upperBound) / 1000.0,
-                step: 0.1
-            )
-            .help(help)
+            header
+            fadeSlider
         }
+    }
+
+    private var header: some View {
+        HStack {
+            FormLabel(title, help: help)
+            Spacer()
+            Text(formattedTime(milliseconds))
+                .font(.system(.caption, design: .monospaced).weight(.bold))
+                .foregroundStyle(.primary)
+        }
+    }
+
+    private var fadeSlider: some View {
+        Slider(value: secondsBinding, in: secondsRange, step: 0.1)
+            .help(help)
+    }
+
+    private var secondsBinding: Binding<Double> {
+        Binding<Double>(
+            get: { Double(milliseconds) / 1000.0 },
+            set: { newValue in
+                let roundedMilliseconds = Int((newValue * 1000).rounded(.toNearestOrAwayFromZero))
+                update(roundedMilliseconds)
+            }
+        )
+    }
+
+    private var secondsRange: ClosedRange<Double> {
+        let lower = Double(range.lowerBound) / 1000.0
+        let upper = Double(range.upperBound) / 1000.0
+        return lower ... upper
     }
 
     private func formattedTime(_ milliseconds: Int) -> String {
