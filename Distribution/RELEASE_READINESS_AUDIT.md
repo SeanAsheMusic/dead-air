@@ -14,8 +14,8 @@ This audit supersedes the older release-level handoff notes for current local wo
   - `./Scripts/build_app.sh --local`
 - Developer ID signing is configured locally with timestamped app and DMG signing.
 - The notary credentials are stored in the `dead-air-notary` keychain profile.
-- The latest fresh notarization submission for `Dead-Air-4.0.0-4.dmg` is `632fe7dc-ed69-4708-bafe-0a77332dee70`; it was accepted, stapled, and assessed with Gatekeeper as `source=Notarized Developer ID`.
-- Release artifact: `release/Dead-Air-4.0.0-4.dmg`, SHA-256 `03f0050ff4598797b2da37d2b273f68382d6e0072a93682c096c87a9a2b8f85f`.
+- The latest fresh notarization submission for `Dead-Air-4.0.0-4.dmg` is `8a243187-d508-4ab5-8e43-bc8b5e269690`; it was accepted, stapled, and assessed with Gatekeeper as `source=Notarized Developer ID`.
+- Release artifact: `release/Dead-Air-4.0.0-4.dmg`, SHA-256 `c518b92a92b7ca5a231eb4d4e1038441425fb56c836aa44529d2bf8ab95c1c67`.
 - Support-bundle redaction has automated coverage for local paths, network paths, device identifiers, MIDI/device names, active profile details, and cue maps.
 - App icon option C is active in the app bundle and regenerated across the `.icns` sizes.
 - The main window now has compact, mid-size, and wide layouts for native macOS resizing. Setup, Help, and Settings use compact scrollable shells at narrow widths.

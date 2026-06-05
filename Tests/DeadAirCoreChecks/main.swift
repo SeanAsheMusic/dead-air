@@ -189,6 +189,7 @@ func runChecks() throws {
     try expect(!diagnosticSnapshot.isEmpty, "diagnostics snapshot returns events")
     try expect(diagnosticSnapshot.allSatisfy { $0.raw != "/Users/example/audio.wav" }, "diagnostics snapshot redacts paths")
     try expect(diagnosticSnapshot.allSatisfy { $0.audioDeviceUID == PrivacyRedactor.marker }, "diagnostics snapshot redacts audio device IDs")
+    try runDiagnosticsStressChecks()
 
     let redactedVolumePath = PrivacyRedactor.redact("/Volumes/Show Drive/Artist/Walk In.wav")
     try expect(!redactedVolumePath.contains("/Volumes/Show Drive"), "privacy redactor removes volume paths")
@@ -243,6 +244,7 @@ func runChecks() throws {
     let legacyProfile = try decoder.decode(ShowProfile.self, from: legacyProfileJSON)
     try expect(legacyProfile.name == "Legacy Profile", "legacy profile decodes")
     try expect(!legacyProfile.lighting.enabled, "legacy profile defaults lighting disabled")
+    try runLargePlaylistStressChecks()
 
     try expect(MIDIParser.command(from: [0x9F, 120, 100], config: MIDIConfig()) == .fadeIn, "MIDI fade-in parse")
     try expect(MIDIParser.command(from: [0x9F, 120, 0], config: MIDIConfig()) == nil, "velocity-zero note-on ignored")
@@ -266,6 +268,7 @@ func runChecks() throws {
     try expect(OSCParser.commandFromPlainText("/lbk/fadeOut") == .fadeOut, "OSC fade-out parse")
     try expect(OSCParser.commandFromPlainText("/deadAir/panic") == .panic, "OSC panic parse")
     try expect(OSCParser.commandFromPlainText("/lbk/level 0.5") == .setLevel(0.5), "OSC level parse")
+    try runParserStressChecks()
 
     let safetyNow = Date()
     let safetyReadyAt = safetyNow.addingTimeInterval(3)
@@ -362,6 +365,139 @@ func runChecks() throws {
         _ = try audio.loadBuffer(from: toneURL, sampleRate: 96_000, maxPredecodedBytes: 128)
         throw CheckFailure(message: "oversize predecode limit should fail")
     } catch AudioEngineError.fileTooLarge {
+        // Expected.
+    }
+    try runAudioDecodeStressChecks(audio: audio)
+}
+
+func runDiagnosticsStressChecks() throws {
+    Diagnostics.shared.configure(persistJsonl: false, redactSensitiveData: true, retentionDays: 1)
+    let group = DispatchGroup()
+    for index in 0..<1_000 {
+        group.enter()
+        DispatchQueue.global(qos: .utility).async {
+            Diagnostics.shared.record(
+                LogEvent(
+                    source: "stress",
+                    message: "event \(index)",
+                    raw: "file:///Users/operator/Show/\(index).wav smb://venue-nas.local/private \(UUID().uuidString)",
+                    audioDeviceUID: "device-\(index)"
+                )
+            )
+            group.leave()
+        }
+    }
+    group.wait()
+    Thread.sleep(forTimeInterval: 0.5)
+    let snapshot = Diagnostics.shared.snapshot(limit: 1_000)
+    try expect(snapshot.count <= 250, "diagnostics stress caps retained events")
+    try expect(snapshot.count >= 200, "diagnostics stress retains recent events")
+    try expect(snapshot.allSatisfy { $0.raw?.contains("/Users/operator") != true }, "diagnostics stress redacts user paths")
+    try expect(snapshot.allSatisfy { $0.raw?.contains("venue-nas.local") != true }, "diagnostics stress redacts network hosts")
+    try expect(snapshot.allSatisfy { $0.audioDeviceUID == PrivacyRedactor.marker }, "diagnostics stress redacts device IDs")
+}
+
+func runLargePlaylistStressChecks() throws {
+    let cues = [
+        LightingCue(name: "Walk In", trigger: .fadeInStarted, provider: .luminescenceOSC, cueName: "Blue Wash"),
+        LightingCue(name: "Show Off", trigger: .fadeOutCompleted, provider: .showOffOSC)
+    ]
+    let beds = (0..<2_000).map { index in
+        BedItem(
+            title: "Bed \(index)",
+            fileName: "bed-\(index).wav",
+            originalPath: "/Volumes/Show Drive/Private/bed-\(index).wav",
+            storageMode: index.isMultiple(of: 3) ? .externalReference : .managedCopy,
+            durationSeconds: Double(30 + index % 360),
+            sampleRate: index.isMultiple(of: 2) ? 44_100 : 48_000,
+            channelCount: 2,
+            artist: "Artist \(index % 25)",
+            musicalKey: "\(index % 12)A",
+            bpm: Double(80 + index % 80),
+            energy: index % 10,
+            tags: ["stress", "show-\(index % 10)"],
+            notes: "Stress playlist note \(index)",
+            metadataSource: .manual,
+            cueReference: "Scene \(index)",
+            lightingCues: cues
+        )
+    }
+    let manifest = LibraryManifest(beds: beds, profileID: UUID())
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let data = try encoder.encode(manifest)
+    try expect(data.count < 5_000_000, "large playlist stays bounded enough for support workflows")
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let decoded = try decoder.decode(LibraryManifest.self, from: data)
+    try expect(decoded.beds.count == beds.count, "large playlist bed count round trips")
+    try expect(decoded.beds[1_999].lightingCues.count == 2, "large playlist cue details round trip")
+
+    var config = AppConfig()
+    config.midi.virtualDestinationName = "Dead Air Private Stage"
+    config.midi.mappings = [
+        MIDIMapping(action: .fadeIn, messageType: .noteOn, channel: 16, number: 120, sourceContains: "Private Controller")
+    ]
+    config.lighting.cues = cues
+    let redacted = PrivacyRedactor.redactedConfig(config)
+    try expect(redacted.lighting.cues.isEmpty, "large support redaction removes cue details")
+    try expect(redacted.midi.mappings.first?.sourceContains == PrivacyRedactor.marker, "large support redaction removes private MIDI source")
+}
+
+func runParserStressChecks() throws {
+    let config = MIDIConfig()
+    for statusValue in 0 ... Int(UInt8.max) {
+        let status = UInt8(statusValue)
+        for length in 0 ... 6 {
+            var bytes = [UInt8](repeating: 0, count: length)
+            if !bytes.isEmpty {
+                bytes[0] = status
+            }
+            if bytes.count > 1 {
+                for index in 1..<bytes.count {
+                    bytes[index] = UInt8((Int(status) * 31 + index * 17) % 128)
+                }
+            }
+            _ = MIDIParser.command(from: bytes, config: config)
+        }
+    }
+    try expect(MIDIParser.command(from: [0x9F, 120, 100], config: config) == .fadeIn, "MIDI stress still accepts valid mapped commands")
+    try expect(MIDIParser.command(from: [0xFF, 0x7F, 0x7F, 0x7F], config: config) == nil, "MIDI system bytes do not map to playback")
+
+    let malformedOSCInputs: [Data] = [
+        Data(),
+        Data(repeating: 0, count: 512),
+        Data([0xFF, 0xFE, 0xFD, 0x00, 0x2F, 0x6C, 0x62, 0x6B]),
+        Data("/lbk/level not-a-number".utf8),
+        Data("/lbk/level 999999".utf8),
+        Data("/lbk/heartbeat nope maybe".utf8),
+        Data((0..<4096).map { UInt8($0 % 251) })
+    ]
+    for payload in malformedOSCInputs {
+        _ = OSCParser.command(from: payload)
+    }
+    try expect(OSCParser.command(from: Data("/lbk/level 999999".utf8)) == .setLevel(1), "OSC level stress clamps high values")
+    try expect(OSCParser.command(from: Data("/lbk/level -25".utf8)) == .setLevel(0), "OSC level stress clamps low values")
+}
+
+func runAudioDecodeStressChecks(audio: AudioEngineController) throws {
+    for duration in [0.05, 0.1, 0.2] {
+        let url = try writeTestTone(sampleRate: 48_000, durationSeconds: duration)
+        for sampleRate in [44_100.0, 48_000.0, 96_000.0] {
+            let buffer = try audio.loadBuffer(from: url, sampleRate: sampleRate, maxPredecodedBytes: 32_000_000)
+            try expect(buffer.format.sampleRate == sampleRate, "audio stress converts \(duration)s tone to \(sampleRate)")
+            try expect(buffer.frameLength > 0, "audio stress produces frames")
+        }
+    }
+
+    let badURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DeadAirChecks", isDirectory: true)
+        .appendingPathComponent("not-audio.txt")
+    try Data("not audio".utf8).write(to: badURL, options: [.atomic])
+    do {
+        _ = try audio.loadBuffer(from: badURL, sampleRate: 48_000, maxPredecodedBytes: 32_000_000)
+        throw CheckFailure(message: "unsupported audio should fail")
+    } catch AudioEngineError.unsupportedFile {
         // Expected.
     }
 }

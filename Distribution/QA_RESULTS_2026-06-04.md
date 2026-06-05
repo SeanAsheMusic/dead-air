@@ -16,13 +16,16 @@ Lighting tool: Not connected in this pass
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | `swift run DeadAirChecks` | Pass | `Dead Air checks passed.` |
+| `swift run -c release DeadAirChecks` | Pass | Optimized stress checks passed. |
+| `swift run --sanitize thread DeadAirChecks` | Pass | Thread Sanitizer checks passed. |
+| `swift run --sanitize address DeadAirChecks` | Pass | Address Sanitizer checks passed. |
 | `swift build -c release -Xswiftc -warnings-as-errors` | Pass | Release build completed with warnings as errors. |
 | `./Scripts/build_app.sh --local` | Pass | Local app bundle rebuilt at `dist/Dead Air.app`. |
 | Developer ID app signature | Pass | `dist-developer-id/Dead Air.app: valid on disk`. |
-| Notarytool submission | Pass | Submission `632fe7dc-ed69-4708-bafe-0a77332dee70`, status `Accepted`. |
+| Notarytool submission | Pass | Submission `8a243187-d508-4ab5-8e43-bc8b5e269690`, status `Accepted`. |
 | Stapler | Pass | `The validate action worked!` |
 | Gatekeeper assessment | Pass | `accepted`, `source=Notarized Developer ID`. |
-| DMG checksum | Pass | SHA-256 `03f0050ff4598797b2da37d2b273f68382d6e0072a93682c096c87a9a2b8f85f`. |
+| DMG checksum | Pass | SHA-256 `c518b92a92b7ca5a231eb4d4e1038441425fb56c836aa44529d2bf8ab95c1c67`. |
 | GitHub CI | Not checked | Needs push of this candidate. |
 | GitHub CodeQL | Not checked | Needs push of this candidate. |
 
@@ -35,6 +38,8 @@ Lighting tool: Not connected in this pass
 | Setup resize | Pass | Compact Setup Assistant uses a vertical layout and does not force the old wide card grid. |
 | Accessibility anchors | Pass | Root, main surface, readiness panel, settings window, and critical controls expose stable `deadAir.*` automation IDs. |
 | Unexpected audio start guard | Pass | Heartbeat defaults off, heartbeat loss defaults to flag-only, legacy auto-fade config does not imply consent, and launch resets Show Mode disarmed. |
+| Clean-profile launch smoke | Pass | App survived a 10-second launch using a temporary home folder, then terminated without leaving a `DeadAir` process. |
+| Recent app crash reports | Pass | No recent `DeadAir` app crash report was found after the clean-profile launch. |
 | Running app stopped after QA | Pass | No `DeadAir` process remained after verification. |
 
 ## Manual QA Still Required

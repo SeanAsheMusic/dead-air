@@ -6,11 +6,15 @@ Use this runbook for every notarized beta or release candidate. Record results i
 
 1. Confirm `main` is current and clean.
 2. Run `swift run DeadAirChecks`.
-3. Run `swift build -c release -Xswiftc -warnings-as-errors`.
-4. Confirm GitHub CI is green for the release SHA.
-5. Confirm GitHub CodeQL is green for the release SHA.
-6. Build the notarized DMG with `./Scripts/package_release_dmg.sh --notarize`.
-7. Confirm the DMG passes Gatekeeper assessment.
+3. Run `swift run -c release DeadAirChecks`.
+4. Run `swift run --sanitize thread DeadAirChecks`.
+5. Run `swift run --sanitize address DeadAirChecks`.
+6. Run `swift build -c release -Xswiftc -warnings-as-errors`.
+7. Confirm GitHub CI is green for the release SHA.
+8. Confirm GitHub CodeQL is green for the release SHA.
+9. Build the notarized DMG with `./Scripts/package_release_dmg.sh --notarize`.
+10. Confirm the DMG passes Gatekeeper assessment.
+11. Follow `Distribution/STABILITY_TEST_PLAN.md` for stress and clean-profile smoke coverage.
 
 ## Install And First Launch
 

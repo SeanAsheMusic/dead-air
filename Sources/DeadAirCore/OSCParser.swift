@@ -7,6 +7,9 @@ public enum OSCParser {
         guard let path = strings.first else {
             return String(data: data, encoding: .utf8).flatMap(commandFromPlainText)
         }
+        if path.contains(where: { $0 == " " || $0 == "\n" || $0 == "\t" }) {
+            return String(data: data, encoding: .utf8).flatMap(commandFromPlainText)
+        }
 
         let payload = String(data: data, encoding: .utf8) ?? ""
         return command(fromPath: path, strings: strings, rawText: payload)
