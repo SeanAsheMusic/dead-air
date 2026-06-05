@@ -65,7 +65,7 @@ Use `Entitlements/DeadAir-DeveloperID.entitlements` as the starting entitlement 
 - Run a full setlist rehearsal
 - Crash or quit Ableton while Dead Air is audible
 - Unplug/replug the audio interface
-- Test Show Mode heartbeat behavior
+- Test Show Mode heartbeat behavior and confirm heartbeat loss does not start audio unless `Fade In If Muted` was explicitly selected
 - Verify external MIDI/OSC cannot start audio until Show Mode is deliberately armed
 - Export/inspect logs after rehearsal
 - Verify Simple/Advanced, Show Dark, System Light/Dark, Help Center, and Setup Assistant at small and large window sizes

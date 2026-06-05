@@ -24,9 +24,12 @@ Use this runbook for every notarized beta or release candidate. Record results i
 
 1. Switch Simple and Advanced modes.
 2. Verify Show Dark, Light, Dark, and System appearance modes.
-3. Resize to the smallest supported window and a large external-display window.
-4. Open Help Center, Setup Assistant, Settings, Diagnostics, and redacted Support Bundle export.
-5. Close the main window and reopen it from the menu bar.
+3. Resize the main window to roughly 380 x 500, 520 x 500, 920 x 640, and 1200 x 760.
+4. Confirm compact width uses one column, mid-size width shows transport and playlist side-by-side, and wide width shows transport, playlist, and readiness/log content together.
+5. Confirm Help Center, Setup Assistant, and Settings scroll vertically instead of clipping at short heights.
+6. For future iPadOS work, follow `Distribution/IPADOS_READINESS.md` and test full, half, third, quadrant, external-display, and minimum Stage Manager window sizes.
+7. Open Help Center, Setup Assistant, Settings, Diagnostics, and redacted Support Bundle export.
+8. Close the main window and reopen it from the menu bar.
 
 ## Library And Persistence
 
@@ -57,6 +60,7 @@ Use this runbook for every notarized beta or release candidate. Record results i
 4. Send inbound OSC to `127.0.0.1:38101`.
 5. Confirm duplicate MIDI or OSC commands are deduped except panic.
 6. Confirm Show Mode heartbeat behavior when the source stops.
+7. Confirm heartbeat loss only changes status/logs by default and does not start audio unless `Fade In If Muted` was explicitly selected in Advanced settings.
 
 ## Connectors And Show Control
 

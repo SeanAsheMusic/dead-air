@@ -1015,16 +1015,62 @@ public struct HeartbeatConfig: Codable, Equatable, Sendable {
         case none
         case fadeInIfMuted
         case enterDegraded
+
+        public var displayName: String {
+            switch self {
+            case .none: "Flag Only"
+            case .fadeInIfMuted: "Fade In If Muted"
+            case .enterDegraded: "Enter Degraded"
+            }
+        }
+
+        public var helpText: String {
+            switch self {
+            case .none:
+                "Show the heartbeat as lost and write a log entry. Audio does not change."
+            case .fadeInIfMuted:
+                "Start a fade-in after heartbeat loss only after this behavior is explicitly selected."
+            case .enterDegraded:
+                "Mark Dead Air as needing attention. Audio does not start automatically."
+            }
+        }
     }
 
     public var enabled: Bool
     public var timeoutMs: Int
     public var onLoss: OnLoss
+    public var allowsAutoFadeIn: Bool
 
-    public init(enabled: Bool = true, timeoutMs: Int = 3500, onLoss: OnLoss = .fadeInIfMuted) {
+    public init(enabled: Bool = false, timeoutMs: Int = 3500, onLoss: OnLoss = .none, allowsAutoFadeIn: Bool = false) {
         self.enabled = enabled
         self.timeoutMs = timeoutMs
         self.onLoss = onLoss
+        self.allowsAutoFadeIn = allowsAutoFadeIn
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case timeoutMs
+        case onLoss
+        case allowsAutoFadeIn
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            enabled: try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false,
+            timeoutMs: try container.decodeIfPresent(Int.self, forKey: .timeoutMs) ?? 3500,
+            onLoss: try container.decodeIfPresent(OnLoss.self, forKey: .onLoss) ?? .none,
+            allowsAutoFadeIn: try container.decodeIfPresent(Bool.self, forKey: .allowsAutoFadeIn) ?? false
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(timeoutMs, forKey: .timeoutMs)
+        try container.encode(onLoss, forKey: .onLoss)
+        try container.encode(allowsAutoFadeIn, forKey: .allowsAutoFadeIn)
     }
 }
 
@@ -1313,6 +1359,9 @@ public extension ShowSetupPreset {
         updated.setupPreset = self
         updated.showModeArmed = false
         updated.power.preventIdleSleep = true
+        updated.heartbeat.enabled = false
+        updated.heartbeat.onLoss = .none
+        updated.heartbeat.allowsAutoFadeIn = false
         updated.audio.targetSampleRate = 48_000
         updated.audio.targetLevelDb = -14
 

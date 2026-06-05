@@ -36,6 +36,9 @@ func runChecks() throws {
     try expect(!config.accessibility.largerTransportControls, "default large transport controls off")
     try expect(!config.accessibility.reduceGlassEffects, "default reduced glass off")
     try expect(!config.accessibility.increaseStatusContrast, "default status contrast follows standard UI")
+    try expect(!config.heartbeat.enabled, "heartbeat supervision defaults off")
+    try expect(config.heartbeat.onLoss == .none, "heartbeat loss defaults to flag only")
+    try expect(!config.heartbeat.allowsAutoFadeIn, "heartbeat auto fade-in requires explicit consent")
     try expect(config.setupPreset == .abletonLightkey, "default setup preset is guided pro path")
     try expect(config.audio.outputLeftChannel == 1, "default left output channel")
     try expect(config.audio.outputRightChannel == 2, "default right output channel")
@@ -49,6 +52,8 @@ func runChecks() throws {
     try expect(abletonPreset.osc.enabled, "Ableton Lightkey preset enables OSC")
     try expect(abletonPreset.audio.targetSampleRate == 48_000, "preset keeps 48 kHz")
     try expect(abletonPreset.version == "4.0.0", "preset migrates config version")
+    try expect(!abletonPreset.heartbeat.enabled, "setup presets keep heartbeat supervision opt-in")
+    try expect(abletonPreset.heartbeat.onLoss == .none, "setup presets do not auto-start audio on heartbeat loss")
 
     let luminescencePreset = ShowSetupPreset.abletonLuminescence.applying(to: AppConfig())
     try expect(luminescencePreset.lighting.defaultProvider == .luminescenceOSC, "Luminescence preset selects Luminescence OSC")
@@ -62,6 +67,16 @@ func runChecks() throws {
     let legacyLogging = try JSONDecoder().decode(LoggingConfig.self, from: legacyLoggingJSON)
     try expect(legacyLogging.redactSensitiveData, "legacy logging defaults redaction on")
     try expect(legacyLogging.retentionDays == 30, "legacy logging defaults 30-day retention")
+
+    let legacyHeartbeatJSON = try fixtureData("""
+    {"enabled":true,"timeoutMs":3500,"onLoss":"fadeInIfMuted"}
+    """)
+    let legacyHeartbeat = try JSONDecoder().decode(HeartbeatConfig.self, from: legacyHeartbeatJSON)
+    try expect(legacyHeartbeat.onLoss == .fadeInIfMuted, "legacy heartbeat behavior decodes")
+    try expect(!legacyHeartbeat.allowsAutoFadeIn, "legacy heartbeat auto fade-in is not silently consented")
+    let explicitHeartbeat = HeartbeatConfig(enabled: true, timeoutMs: 5000, onLoss: .fadeInIfMuted, allowsAutoFadeIn: true)
+    let explicitHeartbeatRoundTrip = try JSONDecoder().decode(HeartbeatConfig.self, from: JSONEncoder().encode(explicitHeartbeat))
+    try expect(explicitHeartbeatRoundTrip == explicitHeartbeat, "explicit heartbeat auto fade-in consent round trips")
 
     let endpointConfig = MIDIConfig(iacBusName: "IAC Driver Bus 1", iacSourceUniqueID: 42, iacSourceName: "Ableton Live")
     let endpointRoundTrip = try JSONDecoder().decode(MIDIConfig.self, from: JSONEncoder().encode(endpointConfig))

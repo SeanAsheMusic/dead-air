@@ -7,15 +7,19 @@ This audit supersedes the older release-level handoff notes for current local wo
 ## Current Verified State
 
 - GitHub repository is public at `https://github.com/SeanAsheMusic/dead-air`.
-- Hosted CI and CodeQL were green on the last pushed `main` SHA before this local connector/icon/design pass; the current local patch must be pushed and rechecked before release.
+- Hosted CI and CodeQL were green on the last pushed `main` SHA before this local connector/icon/design pass; the current local patch must be pushed and rechecked before public release.
 - Local gate passes:
   - `swift run DeadAirChecks`
   - `swift build -c release -Xswiftc -warnings-as-errors`
+  - `./Scripts/build_app.sh --local`
 - Developer ID signing is configured locally with timestamped app and DMG signing.
 - The notary credentials are stored in the `dead-air-notary` keychain profile.
-- The latest fresh notarization submission for `Dead-Air-4.0.0-4.dmg` is `7d678409-982c-4f2e-8bb9-fd7e6b013771`; it must be accepted, stapled, and assessed before sharing.
+- The latest fresh notarization submission for `Dead-Air-4.0.0-4.dmg` is `632fe7dc-ed69-4708-bafe-0a77332dee70`; it was accepted, stapled, and assessed with Gatekeeper as `source=Notarized Developer ID`.
+- Release artifact: `release/Dead-Air-4.0.0-4.dmg`, SHA-256 `03f0050ff4598797b2da37d2b273f68382d6e0072a93682c096c87a9a2b8f85f`.
 - Support-bundle redaction has automated coverage for local paths, network paths, device identifiers, MIDI/device names, active profile details, and cue maps.
 - App icon option C is active in the app bundle and regenerated across the `.icns` sizes.
+- The main window now has compact, mid-size, and wide layouts for native macOS resizing. Setup, Help, and Settings use compact scrollable shells at narrow widths.
+- Heartbeat recovery is opt-in and cannot fade audio in from legacy config files unless the operator explicitly chooses `Fade In If Muted` in current settings.
 
 ## Native macOS Design Audit
 
@@ -38,6 +42,7 @@ Findings and actions taken:
 - Transport buttons now use title case labels and a quieter treatment instead of all-caps glossy styling.
 - Repeated custom card corners were tightened to 8 pt in the edited surfaces to better match a restrained macOS utility feel.
 - Current visual direction: the app now leans more on native macOS materials and system colors while preserving large show-safe transport controls. Final visual QA should still compare actual screenshots in Light, Dark, Show Dark, small window, and external-display sizes.
+- Resize QA on this candidate covered roughly 380 px, 420 px, 520 px, 920 px, and 1200 px window widths. The old Settings minimum-width trap was removed by replacing the fixed macOS Settings scene with an adaptive resizable window.
 
 ## Integration Audit
 
@@ -55,12 +60,11 @@ Intentional limit:
 
 ## Remaining Release Blockers
 
-- The fresh notarization submission must be accepted, stapled, and assessed before sharing the DMG.
 - Manual QA with the real audio interface, Ableton/AbleSet, Luminescence, Show Off, Lightkey or final connector target, and a real show playlist is still required.
 - A clean-machine install from the notarized DMG has not been performed.
 - GitHub CI and CodeQL must be rechecked on the final pushed SHA.
-- The app should be screenshot-reviewed in all appearance modes after the next signed build to catch layout crowding and text overflow.
+- The app should still be screenshot-reviewed in all appearance modes after the final pushed build to catch layout crowding and text overflow.
 
 ## Release Decision
 
-Not approved for public release yet. The code/build gate is green locally, the connector path is real and covered by tests, and the Developer ID package has been submitted to Apple. The shareable Gatekeeper-clean artifact still requires accepted notarization, stapling, assessment, final GitHub CI/CodeQL proof, and real-rig QA.
+Approved for controlled beta sharing from the notarized DMG above. Not approved for public release yet: final GitHub CI/CodeQL proof, clean-machine install QA, and real-rig audio/connector rehearsal QA are still required before calling this a full release.

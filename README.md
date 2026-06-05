@@ -132,7 +132,8 @@ That writes `dist-sandbox/Dead Air.app`.
 - Optional outbound MIDI lighting fallback
 - Show Mode sleep-prevention assertion
 - Menu bar operation after the main window is closed
-- Heartbeat supervision
+- Opt-in heartbeat supervision; heartbeat loss is flag-only by default and cannot start audio unless explicitly selected
+- Adaptive macOS window layout with compact, mid-size, and wide breakpoints; see `Distribution/IPADOS_READINESS.md` for the real iPadOS portability plan
 - JSONL diagnostics under `~/Library/Application Support/Dead Air/Logs`
 - Local automated check runner for config, MIDI, OSC, dedupe, state machine, and fade math
 

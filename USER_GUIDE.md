@@ -81,7 +81,7 @@ Use the macOS Settings window for deeper setup:
 - `Library`: import mode, playlist save/load, and metadata guidance.
 - `Profiles`: save, apply, duplicate, rename, and delete Show Profiles.
 - `Diagnostics`: readiness, logs, last MIDI event, and dropped-event count.
-- `Advanced`: sleep prevention and heartbeat safety settings.
+- `Advanced`: sleep prevention and opt-in heartbeat safety settings. Heartbeat loss is flag-only by default; choose any automatic response deliberately before rehearsal.
 
 ## Show Profiles
 
