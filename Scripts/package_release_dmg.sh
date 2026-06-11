@@ -56,6 +56,18 @@ if [[ "$NOTARIZE" == true && -z "${DEAD_AIR_NOTARY_PROFILE:-}" ]]; then
   fi
 fi
 
+notarize_path() {
+  if [[ -n "${DEAD_AIR_NOTARY_PROFILE:-}" ]]; then
+    /usr/bin/xcrun notarytool submit "$1" --keychain-profile "$DEAD_AIR_NOTARY_PROFILE" --wait
+  else
+    /usr/bin/xcrun notarytool submit "$1" \
+      --apple-id "$APPLE_ID" \
+      --password "$APPLE_APP_PASSWORD" \
+      --team-id "$APPLE_TEAM_ID" \
+      --wait
+  fi
+}
+
 cd "$ROOT"
 "$ROOT/Scripts/build_app.sh" --developer-id
 
@@ -65,6 +77,18 @@ cp -R "$APP_DIR" "$STAGING_DIR/$APP_NAME.app"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 /usr/bin/codesign --verify --deep --strict "$STAGING_DIR/$APP_NAME.app"
+
+# Notarize and staple the app itself before the DMG is built so the copied
+# app passes Gatekeeper even on an offline first launch.
+if [[ "$NOTARIZE" == true ]]; then
+  APP_ZIP="$RELEASE_DIR/Dead-Air-${VERSION}-${BUILD}-app.zip"
+  /usr/bin/ditto -c -k --keepParent "$STAGING_DIR/$APP_NAME.app" "$APP_ZIP"
+  notarize_path "$APP_ZIP"
+  rm -f "$APP_ZIP"
+  /usr/bin/xcrun stapler staple "$STAGING_DIR/$APP_NAME.app"
+  /usr/bin/xcrun stapler validate "$STAGING_DIR/$APP_NAME.app"
+  /usr/sbin/spctl --assess --type execute --verbose=4 "$STAGING_DIR/$APP_NAME.app"
+fi
 
 /usr/bin/hdiutil create \
   -volname "$VOLUME_NAME" \
@@ -80,15 +104,7 @@ rm -f "$TMP_DMG"
 /usr/bin/codesign --verify --strict "$DMG_PATH"
 
 if [[ "$NOTARIZE" == true ]]; then
-  if [[ -n "${DEAD_AIR_NOTARY_PROFILE:-}" ]]; then
-    /usr/bin/xcrun notarytool submit "$DMG_PATH" --keychain-profile "$DEAD_AIR_NOTARY_PROFILE" --wait
-  else
-    /usr/bin/xcrun notarytool submit "$DMG_PATH" \
-      --apple-id "$APPLE_ID" \
-      --password "$APPLE_APP_PASSWORD" \
-      --team-id "$APPLE_TEAM_ID" \
-      --wait
-  fi
+  notarize_path "$DMG_PATH"
   /usr/bin/xcrun stapler staple "$DMG_PATH"
   /usr/sbin/spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG_PATH"
 else

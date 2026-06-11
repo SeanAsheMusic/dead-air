@@ -68,3 +68,10 @@ Intentional limit:
 ## Release Decision
 
 Approved for controlled beta sharing from the notarized DMG above. Not approved for public release yet: final GitHub CI/CodeQL proof, clean-machine install QA, and real-rig audio/connector rehearsal QA are still required before calling this a full release.
+
+## Addendum 2026-06-10
+
+See `Distribution/QA_RESULTS_2026-06-10.md` for the latest verified evidence. Two corrections to this audit:
+
+- The redaction-coverage claim above is accurate for config fields but overstated for the event log: profile names, bed titles, MIDI endpoint names, and cue names logged in `LogEvent.raw` survive redaction, and bare hostnames/IPs match no redaction pattern. Treat the manual support-bundle inspection as mandatory until those log sites are redacted.
+- GitHub CI and CodeQL have since been verified green on `cbf743fe52c8c0bf6a25eafe1e045880cc71f5a4` (CI `26988399072`, CodeQL `26988399092`, scheduled CodeQL `27140347519`), closing that blocker for this SHA.

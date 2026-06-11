@@ -13,7 +13,7 @@ Bring Dead Air from public beta/source-ready to release-level by making GitHub C
 Suggested first message for the next chat:
 
 ```text
-We are working in /Users/ashemacstudio/Documents/Codex/2026-05-11/files-mentioned-by-the-user-dead. Continue from Distribution/RELEASE_LEVEL_AUDIT_HANDOFF.md. First verify GitHub CI/CodeQL after the latest workflow and FadeTimeSlider fixes, then work the P0/P1 release blockers in order until Dead Air is ready for signed beta/release distribution.
+We are working in /Users/ashemacstudio/Documents/Dead Air. Continue from Distribution/RELEASE_LEVEL_AUDIT_HANDOFF.md and CLAUDE_CODE_HANDOFF.md. First verify GitHub CI/CodeQL after the latest workflow and FadeTimeSlider fixes, then work the P0/P1 release blockers in order until Dead Air is ready for signed beta/release distribution.
 ```
 
 ## Current State

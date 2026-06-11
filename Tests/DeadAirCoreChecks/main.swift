@@ -201,6 +201,44 @@ func runChecks() throws {
     try expect(!redactedNetworkURL.contains("venue-nas.local"), "privacy redactor removes network paths")
     let redactedUUID = PrivacyRedactor.redact("device 123E4567-E89B-12D3-A456-426614174000 selected")
     try expect(!redactedUUID.contains("123E4567"), "privacy redactor removes UUID-like identifiers")
+    let redactedIPv4 = PrivacyRedactor.redact("OSC sent to 192.168.1.42:9001 from console")
+    try expect(!redactedIPv4.contains("192.168.1.42"), "privacy redactor removes bare IPv4 addresses")
+    let redactedLocalHost = PrivacyRedactor.redact("resolved venue-controller.local before send")
+    try expect(!redactedLocalHost.contains("venue-controller.local"), "privacy redactor removes .local hostnames")
+
+    let showTerms = ["Secret Venue 2024", "Walk In Groove", "Ableton House Rig", "VIP Entrance", "Encore.wav"]
+    let redactedProfileEvent = PrivacyRedactor.redactedLogEvent(
+        LogEvent(source: "profile", message: "show profile applied", raw: "Secret Venue 2024"),
+        sensitiveTerms: showTerms
+    )
+    try expect(redactedProfileEvent.raw?.contains("Secret Venue") == false, "log redaction removes profile names")
+    let redactedBedEvent = PrivacyRedactor.redactedLogEvent(
+        LogEvent(source: "library", message: "next bed primed", raw: "walk in groove (Encore.wav)"),
+        sensitiveTerms: showTerms
+    )
+    try expect(redactedBedEvent.raw?.contains("groove") == false, "log redaction removes bed titles case-insensitively")
+    try expect(redactedBedEvent.raw?.contains("Encore.wav") == false, "log redaction removes bed file names")
+    let redactedMIDIEvent = PrivacyRedactor.redactedLogEvent(
+        LogEvent(source: "midi", message: "MIDI source selected", raw: "Ableton House Rig #42"),
+        sensitiveTerms: showTerms
+    )
+    try expect(redactedMIDIEvent.raw?.contains("Ableton House Rig") == false, "log redaction removes MIDI endpoint names")
+    let redactedCueEvent = PrivacyRedactor.redactedLogEvent(
+        LogEvent(source: "lighting", message: "cue skipped: VIP Entrance", raw: "VIP Entrance"),
+        sensitiveTerms: showTerms
+    )
+    try expect(redactedCueEvent.raw?.contains("VIP Entrance") == false, "log redaction removes cue names from raw")
+    try expect(!redactedCueEvent.message.contains("VIP Entrance"), "log redaction removes cue names from messages")
+    let untouchedEvent = PrivacyRedactor.redactedLogEvent(
+        LogEvent(source: "audio", message: "fade complete"),
+        sensitiveTerms: showTerms
+    )
+    try expect(untouchedEvent.message == "fade complete", "log redaction leaves generic messages intact")
+    let shortTermEvent = PrivacyRedactor.redactedLogEvent(
+        LogEvent(source: "library", message: "removed bed", raw: "A"),
+        sensitiveTerms: ["A"]
+    )
+    try expect(shortTermEvent.raw == "A", "log redaction ignores single-character terms to avoid mass redaction")
 
     var sensitiveConfig = AppConfig()
     sensitiveConfig.audio.preferredOutputUID = "123E4567-E89B-12D3-A456-426614174000"

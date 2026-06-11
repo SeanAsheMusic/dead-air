@@ -4,10 +4,10 @@ Dead Air is a native macOS transition-bed player for live-show handoffs. It keep
 
 For fast setup, see [QUICKSTART.md](QUICKSTART.md). For operator instructions, see [USER_GUIDE.md](USER_GUIDE.md). For project/build details, see [TECHNICAL_README.md](TECHNICAL_README.md).
 
-## Commercial Readiness V4.0.0
+## Commercial Readiness V4.0.1
 
 - Company and bundle identity aligned to Undeniable Spectacle: `com.undeniablespectacle.deadair`
-- Version reads from the app bundle: `4.0.0` build `4`
+- Version reads from the app bundle: `4.0.1` build `5`
 - First-run Setup Assistant with EZ Setup presets, audio routing, file behavior, inbound control, connector walkthroughs, and final readiness checks
 - Built-in setup presets for Ableton/AbleSet + Lightkey, Ableton/AbleSet + Luminescence, Show Off bridge, generic DAW MIDI, IAC legacy rigs, DJ manual operation, QLab OSC, and reference-file workflows
 - Simple/Advanced UI modes plus System, Show Dark, Light, and Dark appearance modes

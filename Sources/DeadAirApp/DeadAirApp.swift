@@ -1194,11 +1194,42 @@ final class DeadAirModel: ObservableObject {
         PrivacyRedactor.redactedConfig(config)
     }
 
+    /// User-provided names that must never leave the machine in a redacted
+    /// support bundle, even when they were captured inside older log events.
+    private var supportSensitiveTerms: [String] {
+        var terms: [String] = []
+        terms.append(contentsOf: showProfiles.map(\.name))
+        if let activeProfile { terms.append(activeProfile.name) }
+        for bed in beds {
+            terms.append(bed.title)
+            terms.append(bed.fileName)
+            for cue in bed.lightingCues {
+                terms.append(contentsOf: [cue.name, cue.pageName, cue.cueName])
+                if let frame = cue.frameName { terms.append(frame) }
+                if let address = cue.rawOSCAddress { terms.append(address) }
+            }
+        }
+        for cue in config.lighting.cues {
+            terms.append(contentsOf: [cue.name, cue.pageName, cue.cueName])
+            if let frame = cue.frameName { terms.append(frame) }
+            if let address = cue.rawOSCAddress { terms.append(address) }
+        }
+        terms.append(contentsOf: midiSources.map(\.name))
+        terms.append(contentsOf: devices.map(\.name))
+        terms.append(config.midi.virtualDestinationName)
+        terms.append(config.midi.iacBusName)
+        if let name = config.midi.iacSourceName { terms.append(name) }
+        terms.append(config.lighting.midiDestinationName)
+        terms.append(contentsOf: config.midi.mappings.compactMap(\.sourceContains))
+        return terms
+    }
+
     private func redactedReadinessItems(shouldRedact: Bool) -> [SupportReadinessItem] {
-        readinessItems.map { item in
+        let terms = shouldRedact ? supportSensitiveTerms : []
+        return readinessItems.map { item in
             SupportReadinessItem(
                 title: item.title,
-                detail: shouldRedact ? PrivacyRedactor.redact(item.detail) : item.detail,
+                detail: shouldRedact ? PrivacyRedactor.redact(item.detail, sensitiveTerms: terms) : item.detail,
                 isReady: item.isReady
             )
         }
@@ -1206,7 +1237,9 @@ final class DeadAirModel: ObservableObject {
 
     private func redactedRecentEvents(shouldRedact: Bool) -> [LogEvent] {
         let events = Diagnostics.shared.snapshot(limit: 250)
-        return shouldRedact ? events.map(PrivacyRedactor.redactedLogEvent) : events
+        guard shouldRedact else { return events }
+        let terms = supportSensitiveTerms
+        return events.map { PrivacyRedactor.redactedLogEvent($0, sensitiveTerms: terms) }
     }
 
     private func redactedAudioDevices() -> [AudioOutputDevice] {

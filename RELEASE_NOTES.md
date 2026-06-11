@@ -1,5 +1,13 @@
 # Dead Air Release Notes
 
+## 4.0.1 Build 5
+
+Support-bundle privacy hardening.
+
+- Redacted support bundles now also strip user-provided names captured inside recent log events: show profile names, bed titles and file names, lighting cue/page/frame names, raw OSC addresses, MIDI endpoint and mapping names, and audio device names.
+- Privacy redaction now removes bare IPv4 addresses (with optional port) and `.local`/`.lan`/`.home` hostnames from exported logs and readiness details.
+- Release DMG packaging now notarizes and staples the app itself before building the DMG, so first launches succeed offline even when the app is copied out of the disk image.
+
 ## 4.0.0 Build 4
 
 Commercial-readiness pass for Undeniable Spectacle.
