@@ -1,3 +1,4 @@
+import CoreMIDI
 import DeadAirCore
 @preconcurrency import AVFAudio
 import Foundation
@@ -283,6 +284,32 @@ func runChecks() throws {
     try expect(legacyProfile.name == "Legacy Profile", "legacy profile decodes")
     try expect(!legacyProfile.lighting.enabled, "legacy profile defaults lighting disabled")
     try runLargePlaylistStressChecks()
+
+    // Regression: a >256-byte sysex packet must not crash or truncate.
+    // The old packet iteration copied each MIDIPacket to the stack and
+    // advanced with MIDIPacketNext on the copy, hitting the stack guard
+    // page on the CoreMIDI receive thread for variable-length packets.
+    do {
+        let bufferSize = 4096
+        let listPointer = UnsafeMutableRawPointer.allocate(
+            byteCount: bufferSize,
+            alignment: MemoryLayout<MIDIPacketList>.alignment
+        )
+        defer { listPointer.deallocate() }
+        let list = listPointer.assumingMemoryBound(to: MIDIPacketList.self)
+        var bigSysex: [UInt8] = [0xF0, 0x7E]
+        bigSysex.append(contentsOf: Array(repeating: 0x42, count: 700))
+        bigSysex.append(0xF7)
+        let noteOn: [UInt8] = [0x90, 0x3C, 0x64]
+        var cursor = MIDIPacketListInit(list)
+        cursor = MIDIPacketListAdd(list, bufferSize, cursor, 0, bigSysex.count, bigSysex)
+        cursor = MIDIPacketListAdd(list, bufferSize, cursor, 0, noteOn.count, noteOn)
+        try expect(list.pointee.numPackets == 2, "packet list accepts a 700-byte sysex plus a note-on")
+        let parsed = MIDIEndpointManager.packetBytes(from: list)
+        try expect(parsed.count == 2, "packetBytes reads every packet in a multi-packet list")
+        try expect(parsed.first == bigSysex, "packetBytes preserves sysex past the 256-byte packet layout")
+        try expect(parsed.last == noteOn, "packetBytes reads the packet that follows a large sysex")
+    }
 
     try expect(MIDIParser.command(from: [0x9F, 120, 100], config: MIDIConfig()) == .fadeIn, "MIDI fade-in parse")
     try expect(MIDIParser.command(from: [0x9F, 120, 0], config: MIDIConfig()) == nil, "velocity-zero note-on ignored")

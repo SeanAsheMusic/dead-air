@@ -1,5 +1,16 @@
 # Dead Air Release Notes
 
+## 4.0.1 Build 6
+
+Show-critical MIDI crash fix and UI polish.
+
+- Fixed a crash on the CoreMIDI receive thread when an input delivered a MIDI packet longer than 256 bytes (large sysex, common from controller firmware chatter). Packets are now read in place from the packet list; long sysex is preserved instead of truncated.
+- Removed redundant inline help buttons from transport tiles, status pills, and form labels; tooltips and section-level help remain.
+- Port numbers no longer render with locale separators ("38,101" is now "38101").
+- The Settings window is single-instance; Cmd+, and the Settings button reuse it.
+- The Bed Mode label no longer truncates at compact window widths.
+- Panic Mute reads as an emergency control in Light mode; the lighting status glyph uses a quieter hierarchical orange.
+
 ## 4.0.1 Build 5
 
 Support-bundle privacy hardening.

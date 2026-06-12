@@ -128,19 +128,21 @@ public final class MIDIEndpointManager: @unchecked Sendable {
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    private static func packetBytes(from packetList: UnsafePointer<MIDIPacketList>) -> [[UInt8]] {
+    /// Reads every packet in place. Packets in a `MIDIPacketList` are
+    /// variable-length: copying a `MIDIPacket` to a local and advancing with
+    /// `MIDIPacketNext` on that copy walks off the stack frame for any packet
+    /// longer than the declared 256-byte layout (large sysex) and crashes the
+    /// CoreMIDI receive thread with a stack-guard violation.
+    public static func packetBytes(from packetList: UnsafePointer<MIDIPacketList>) -> [[UInt8]] {
         var result: [[UInt8]] = []
-        var packet = packetList.pointee.packet
+        result.reserveCapacity(Int(packetList.pointee.numPackets))
+        guard let dataOffset = MemoryLayout<MIDIPacket>.offset(of: \MIDIPacket.data) else { return result }
 
-        for _ in 0..<packetList.pointee.numPackets {
-            let length = Int(packet.length)
-            let bytes = withUnsafeBytes(of: packet.data) { rawBuffer in
-                Array(rawBuffer.prefix(length))
-            }
-            result.append(bytes)
-            packet = withUnsafePointer(to: &packet) { pointer in
-                MIDIPacketNext(pointer).pointee
-            }
+        for packetPointer in packetList.unsafeSequence() {
+            let length = Int(packetPointer.pointee.length)
+            guard length > 0 else { continue }
+            let dataPointer = UnsafeRawPointer(packetPointer).advanced(by: dataOffset)
+            result.append([UInt8](UnsafeRawBufferPointer(start: dataPointer, count: length)))
         }
 
         return result
