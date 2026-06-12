@@ -203,7 +203,7 @@ struct DeadAirApp: App {
                 .environmentObject(model)
         }
 
-        WindowGroup("Dead Air Settings", id: "settings") {
+        Window("Dead Air Settings", id: "settings") {
             DeadAirSettingsWindow()
                 .environmentObject(model)
                 .environment(\.deadAirAccessibility, model.config.accessibility)
@@ -2692,7 +2692,7 @@ struct SetupWizardView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Stepper("Port \(model.config.osc.port)", value: Binding(get: {
+                        Stepper("Port \(String(model.config.osc.port))", value: Binding(get: {
                             model.config.osc.port
                         }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
                         Button("Retry") {
@@ -2703,7 +2703,7 @@ struct SetupWizardView: View {
                         Text("Dead Air listens on \(model.config.osc.host)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Stepper("Port \(model.config.osc.port)", value: Binding(get: {
+                        Stepper("Port \(String(model.config.osc.port))", value: Binding(get: {
                             model.config.osc.port
                         }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
                         Button("Retry") {
@@ -2745,7 +2745,7 @@ struct SetupWizardView: View {
                         }, set: { model.setLightkeyHost($0) }))
                         .textFieldStyle(.roundedBorder)
 
-                        Stepper("Port \(model.config.lighting.lightkeyPort)", value: Binding(get: {
+                        Stepper("Port \(String(model.config.lighting.lightkeyPort))", value: Binding(get: {
                             model.config.lighting.lightkeyPort
                         }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
                     }
@@ -2755,7 +2755,7 @@ struct SetupWizardView: View {
                         }, set: { model.setLightkeyHost($0) }))
                         .textFieldStyle(.roundedBorder)
 
-                        Stepper("Port \(model.config.lighting.lightkeyPort)", value: Binding(get: {
+                        Stepper("Port \(String(model.config.lighting.lightkeyPort))", value: Binding(get: {
                             model.config.lighting.lightkeyPort
                         }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
                     }
@@ -3506,14 +3506,18 @@ struct ShowQuickPanel: View {
                 update: model.setFadeOutMs
             )
 
-            Picker("Bed Mode", selection: Binding(get: {
-                model.config.bedAdvanceMode
-            }, set: { model.setBedAdvanceMode($0) })) {
-                ForEach(BedAdvanceMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
+            VStack(alignment: .leading, spacing: 5) {
+                FormLabel("Bed Mode", help: "Controls what happens after fade-out or at the end of an audible bed.")
+                Picker("Bed Mode", selection: Binding(get: {
+                    model.config.bedAdvanceMode
+                }, set: { model.setBedAdvanceMode($0) })) {
+                    ForEach(BedAdvanceMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
-            .pickerStyle(.segmented)
             .help("Continuous keeps the current bed ready until you choose next. Auto-Prep prepares the next bed after fade-out. Auto-Crossfade changes near the end.")
 
             HStack(spacing: 8) {
@@ -3529,7 +3533,8 @@ struct ShowQuickPanel: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "lightbulb.2.fill")
-                    .foregroundStyle(model.config.lighting.enabled ? .yellow : .secondary)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(model.config.lighting.enabled ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.secondary))
                 Text("Lighting \(model.lightingStatusValue): \(model.lastLightingEventSummary)")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
@@ -3537,7 +3542,7 @@ struct ShowQuickPanel: View {
             }
             .padding(8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .statusGlassTile(tint: model.config.lighting.enabled ? .yellow : .secondary)
+            .statusGlassTile(tint: model.config.lighting.enabled ? .orange : .secondary)
         }
     }
 }
@@ -3749,7 +3754,7 @@ struct SettingsOSCPanel: View {
             Toggle("Enable OSC", isOn: Binding(get: {
                 model.config.osc.enabled
             }, set: { model.setOSCEnabled($0) }))
-            Text("Listening on \(model.config.osc.host):\(model.config.osc.port). Last command: \(model.lastCommand)")
+            Text("Listening on \(model.config.osc.host):\(String(model.config.osc.port)). Last command: \(model.lastCommand)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             ViewThatFits(in: .horizontal) {
@@ -3773,7 +3778,7 @@ struct SettingsOSCPanel: View {
     }
 
     private var inboundOSCPortStepper: some View {
-        Stepper("Inbound port \(model.config.osc.port)", value: Binding(get: {
+        Stepper("Inbound port \(String(model.config.osc.port))", value: Binding(get: {
             model.config.osc.port
         }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
     }
@@ -4465,7 +4470,7 @@ struct SettingsPanel: View {
                     HelpIcon("Enables localhost OSC control on 127.0.0.1:\(model.config.osc.port).")
                 }
             }
-            Text("Port \(model.config.osc.port)  |  Last command: \(model.lastCommand)")
+            Text("Port \(String(model.config.osc.port))  |  Last command: \(model.lastCommand)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -4542,7 +4547,7 @@ struct SettingsPanel: View {
     }
 
     private var oscPortStepper: some View {
-        Stepper("OSC Port \(model.config.osc.port)", value: Binding(get: {
+        Stepper("OSC Port \(String(model.config.osc.port))", value: Binding(get: {
             model.config.osc.port
         }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
     }
@@ -5456,33 +5461,27 @@ struct ControlButton: View {
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .topTrailing) {
-                VStack(spacing: 10) {
-                    Image(systemName: systemImage)
-                        .font(.system(size: iconSize, weight: .bold))
-                        .foregroundStyle(tint)
-                    Text(title)
-                        .font(.system(size: titleSize, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.82)
-                }
-                .frame(maxWidth: .infinity, minHeight: controlHeight)
-
-                HelpIcon(help)
-                    .foregroundStyle(.secondary)
-                    .padding(10)
+            VStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: iconSize, weight: .bold))
+                    .foregroundStyle(tint)
+                Text(title)
+                    .font(.system(size: titleSize, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.82)
             }
+            .frame(maxWidth: .infinity, minHeight: controlHeight)
             .padding(.horizontal, 8)
             .background(
-                tint.opacity(title == "Panic Mute" ? 0.16 : 0.10),
+                tint.opacity(title == "Panic Mute" ? 0.22 : 0.10),
                 in: RoundedRectangle(cornerRadius: 8)
             )
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(tint.opacity(title == "Panic Mute" ? 0.42 : 0.22), lineWidth: title == "Panic Mute" ? 1.25 : 1)
+                    .stroke(tint.opacity(title == "Panic Mute" ? 0.55 : 0.22), lineWidth: title == "Panic Mute" ? 1.25 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -5521,17 +5520,13 @@ struct StatusPill: View {
     let automationID: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title.uppercased())
-                    .font(.caption2.bold())
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.callout.bold())
-                    .monospacedDigit()
-            }
-            HelpIcon(help)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .font(.caption2.bold())
                 .foregroundStyle(.secondary)
+            Text(value)
+                .font(.callout.bold())
+                .monospacedDigit()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -5587,14 +5582,10 @@ struct FormLabel: View {
     }
 
     var body: some View {
-        HStack(spacing: 5) {
-            Text(title)
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
-            HelpIcon(help)
-                .foregroundStyle(.secondary)
-        }
-        .help(help)
+        Text(title)
+            .font(.caption.bold())
+            .foregroundStyle(.secondary)
+            .help(help)
     }
 }
 
