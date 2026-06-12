@@ -2,7 +2,7 @@
 
 Version: 4.0.1
 Build: 5
-Git SHA: `c90fae66d34035d6ed2ba69f4613a02a4f546f46` (`main`, pushed)
+Git SHA: `e0dea70` (`main`, pushed; supersedes `c90fae6` after the UI polish pass below)
 Tester: Claude Code automated verification
 Date: 2026-06-11
 macOS: Darwin 25.4.0 host
@@ -36,13 +36,43 @@ New checks cover: profile/bed/file/MIDI/cue name redaction in `LogEvent.raw` and
 `message`, case-insensitive matching, IPv4 and `.local` hostname patterns, generic
 messages left intact, and single-character terms ignored to avoid mass redaction.
 
-## Hosted CI / CodeQL (SHA `c90fae6`)
+## Hosted CI / CodeQL
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| GitHub CI (push) | Pass | Run `27329701175`, conclusion `success`. |
-| GitHub CodeQL (push) | Pass | Run `27329701169`, conclusion `success`. |
+| GitHub CI (push, `c90fae6`) | Pass | Run `27329701175`, conclusion `success`. |
+| GitHub CodeQL (push, `c90fae6`) | Pass | Run `27329701169`, conclusion `success`. |
+| GitHub CI (push, `e0dea70`) | Pass | Run `27390705323`, conclusion `success`. |
+| GitHub CodeQL (push, `e0dea70`) | Pass | Run `27390705324`, conclusion `success`. |
 | Open code-scanning alerts | None | Empty alert list before push; no new alerts. |
+
+## UI/Design Review (this pass, live app on `e0dea70`)
+
+Screen-by-screen review of the running app (main surface in Simple and
+Advanced, Settings, Setup Assistant all five steps, Help Center, System /
+Show Dark / Light / Dark appearances, default and wide window sizes).
+
+Strengths confirmed: native controls and menus throughout, well-structured
+five-step Setup Assistant, searchable Help Center, readiness panel, Show Dark
+stage mode, adaptive wide layout, SF Symbols only (no emoji in UI).
+
+Defects found and fixed in `e0dea70`:
+
+| Issue | Fix |
+| --- | --- |
+| ~25 inline help buttons per screen (every transport tile, status chip, and form label) | Removed from `ControlButton`, `StatusPill`, `FormLabel`; native tooltips and accessibility hints remain; `SectionHeader` keeps one click-help per section. |
+| Port numbers rendered with locale grouping ("Port 38,101", "Port 21,600") in wizard, settings, and status text | Ports interpolated as `String` in `LocalizedStringKey` contexts; verified "Port 38101" / "Port 21600" in the running app. |
+| Cmd+, and the Settings button could open duplicate "Dead Air Settings" windows (second window also kept a stale appearance) | Settings scene changed from `WindowGroup` to single-instance `Window`; verified one window via the Window menu. |
+| "Bed Mode" segmented-picker label truncated to "Bed Mo..." at default/compact widths | Label moved above the control as a `FormLabel`; verified untruncated. |
+| Panic Mute tile read as pastel pink in Light mode | Tint fill 0.16→0.22 and border 0.42→0.55; reads as an emergency control in both appearances. |
+| Lighting status glyph (saturated yellow `lightbulb.2.fill`) read as an emoji | Hierarchical orange treatment tied to the tile tint. |
+
+All six local gates re-run and passing on `e0dea70` after these changes.
+
+Known acceptable items (deliberate, not defects): small-caps status-chip
+labels (pro-audio idiom), persistent red CONNECTORS "Check" chip until
+connectors are verified (show-safety signal), live event log shows
+`[redacted]` when log redaction is enabled (product behavior).
 
 ## Repository Governance (enabled this pass)
 
@@ -54,13 +84,14 @@ messages left intact, and single-character terms ignored to avoid mass redaction
 
 ## Release Artifact — IN PROGRESS / BLOCKED
 
-The Developer ID build of 4.0.1-5 was signed (hardened runtime, secure timestamp,
-verified `codesign --verify --deep --strict`) and submitted to Apple notary
-service as `Dead-Air-4.0.1-5-app.zip`, submission ID
+The Developer ID build of 4.0.1-5 at `c90fae6` was signed (hardened runtime,
+secure timestamp, verified `codesign --verify --deep --strict`) and submitted to
+Apple notary service as `Dead-Air-4.0.1-5-app.zip`, submission ID
 `c2999fc4-d1bc-4ced-a9bf-f817c2826ad2` (2026-06-11T07:03Z). Apple's service was
 unstable during this pass (one timestamp-server failure, one connect timeout
 mid-wait). The submission was last seen `In Progress`; no ticket had been issued
-roughly 45 minutes later.
+roughly 45 minutes later. That artifact is now superseded anyway: the release
+DMG must be rebuilt from `e0dea70` (or later) so it includes the UI polish pass.
 
 Blocking issue: the `dead-air-notary` keychain profile became unreadable
 mid-session (`No Keychain password item found`) after working for the submission
@@ -99,7 +130,7 @@ this packaging run's staging cleanup. The 4.0.0-4 evidence remains in
 | Show Off OSC (`127.0.0.1:39051`) | Not run | Required before show use. |
 | Custom OSC send test | Not run | Required before show use. |
 | Support bundle export + manual privacy inspection | Not run | Re-test against this build's expanded redaction. |
-| Screenshot/layout review (appearance modes, Simple/Advanced, compact/wide) | Not run | Required before public release. |
+| Screenshot/layout review (appearance modes, Simple/Advanced, compact/wide) | Done this pass | See "UI/Design Review" above; operator spot-check on the final notarized build still recommended. |
 
 ## Release Verdict
 
@@ -111,10 +142,12 @@ for it, and the previous 4.0.0-4 DMG is superseded by the redaction fix.
 
 Open blockers, in order:
 
-1. Restore notary keychain access; finish notarize/staple of the 4.0.1-5 app and
-   DMG; record artifact evidence (SHA-256, submission IDs, stapler, Gatekeeper).
+1. Restore notary keychain access; rebuild from `e0dea70`, notarize/staple the
+   app and DMG; record artifact evidence (SHA-256, submission IDs, stapler,
+   Gatekeeper).
 2. Clean-machine install QA from the new DMG.
 3. Real-rig audio QA (interface, fades, panic mute, routing, unplug/replug, full setlist).
 4. Real MIDI and connector QA (Ableton/AbleSet or IAC; Lightkey/Luminescence/Show Off/custom OSC as used).
 5. Support-bundle export and manual privacy inspection against the new redaction.
-6. Screenshot/layout review across appearance modes and window sizes.
+6. (Closed this pass) Screenshot/layout review — done against `e0dea70`; spot-check
+   the final notarized build during rehearsal.
