@@ -1,8 +1,8 @@
-# Dead Air Release QA Results — 4.0.1 Build 5 Candidate
+# Dead Air Release QA Results — 4.0.1 Builds 5–6
 
 Version: 4.0.1
-Build: 5
-Git SHA: `e0dea70` (`main`, pushed; supersedes `c90fae6` after the UI polish pass below)
+Build: 6 (final candidate; SHA `2cf4d7e` on `main`)
+Earlier same-day candidates: build 5 at `c90fae6` (redaction fix) and `e0dea70` (UI polish), both superseded by the MIDI crash fix below.
 Tester: Claude Code automated verification
 Date: 2026-06-11
 macOS: Darwin 25.4.0 host
@@ -82,7 +82,50 @@ connectors are verified (show-safety signal), live event log shows
 - Secret scanning: enabled. Push protection: enabled.
 - Dependabot vulnerability alerts: enabled (version-update PRs already active).
 
-## Release Artifact — IN PROGRESS / BLOCKED
+## MIDI Receive Crash Found And Fixed (build 6, `2cf4d7e`)
+
+While verifying the build-5 artifact, a real crash report surfaced from the
+live UI-testing session (`DeadAir-2026-06-11-120501.ips`): EXC_BAD_ACCESS /
+SIGBUS, stack-guard violation on the CoreMIDI receive thread inside
+`MIDIEndpointManager.packetBytes(from:)`. Root cause: each `MIDIPacket` was
+copied to a stack local and advanced with `MIDIPacketNext` on the copy;
+packets in a `MIDIPacketList` are variable-length, so any packet longer than
+the declared 256-byte layout (large sysex — routine controller/firmware
+chatter) walked off the stack frame. This was a mid-show crash risk and also
+silently truncated long sysex.
+
+Fix: iterate the packet list in place via `unsafeSequence()`; long packets
+are preserved. Regression check added to DeadAirChecks (real packet list with
+a 700-byte sysex followed by a note-on). All six local gates re-run green on
+`2cf4d7e`; CI `27394843975` and CodeQL `27394843964` green.
+
+The build-5 DMG (notarized earlier the same day: app submission
+`148528a8-d6ee-4139-b6f1-76302a361610`, DMG submission
+`4058f7f1-22d0-4570-a1ef-e8d5591fc9db`, SHA-256
+`f6eb576e5fb589b89453b1e5f28c85270a60d070553d0fab67242ec25b1dd42a`) contains
+the crash and MUST NOT be distributed. It has been superseded by build 6.
+
+## Release Artifact — 4.0.1 Build 6 (VERIFIED)
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| DMG path | — | `release/Dead-Air-4.0.1-6.dmg` (built from `2cf4d7e`) |
+| DMG SHA-256 | Recorded | `a9b881c27bcfdb9ebdea7e7d0fd39518ce8a4ff0e97248bc0829febde96eba5c` |
+| App notarization | Accepted | Submission `be3e58c5-5619-4995-8b59-06468b6751a8`; app stapled in staging, `spctl --type execute`: `accepted`, `source=Notarized Developer ID`. |
+| DMG notarization | Accepted | Submission `be09db66-1d7e-40b0-90f6-b6dec6225bf4`. |
+| DMG staple | Pass | `The staple and validate action worked!` |
+| DMG Gatekeeper | Pass | `accepted`, `source=Notarized Developer ID`. |
+| App inside DMG | Pass | `codesign --verify --deep --strict` clean; stapler validate pass; `spctl --type execute` accepted; Info.plist `4.0.1` / `6`. |
+| Clean-profile install smoke | Pass | App copied out of DMG, launched 12 s under a fresh `HOME`, terminated cleanly, no orphan process, no new crash reports. |
+
+Pipeline note: the app-zip notarize+staple step ran via
+`package_release_dmg.sh --notarize`; `hdiutil convert` of the UDRW staging
+image failed repeatedly with "Resource temporarily unavailable"
+(diskimagesiod held the temp image), so the DMG was created directly from
+the stapled staging folder with `hdiutil create -format UDZO`, then signed,
+notarized, and stapled — identical end state to the script.
+
+## Build 5 Artifact History — superseded
 
 The Developer ID build of 4.0.1-5 at `c90fae6` was signed (hardened runtime,
 secure timestamp, verified `codesign --verify --deep --strict`) and submitted to
@@ -134,20 +177,25 @@ this packaging run's staging cleanup. The 4.0.0-4 evidence remains in
 
 ## Release Verdict
 
-Result: **Not releasable yet — artifact incomplete.**
+Result: **Approved for controlled beta from `release/Dead-Air-4.0.1-6.dmg`.
+Not yet approved for public release — remaining blockers are all operator/
+hardware QA.**
 
-The 4.0.1-5 source is release-quality by every automated measure (local gates,
-sanitizers, CI, CodeQL, redaction checks), but there is no finished notarized DMG
-for it, and the previous 4.0.0-4 DMG is superseded by the redaction fix.
+Every automated and artifact gate is closed on `2cf4d7e`: local gates,
+sanitizers, CI, CodeQL, redaction checks, the MIDI large-sysex regression,
+notarized+stapled app and DMG, Gatekeeper acceptance, and a clean-profile
+install smoke. The UI/design review is closed. Distribute only build 6;
+the build-5 and 4.0.0-4 DMGs are superseded (build 5 contains the MIDI
+receive crash).
 
 Open blockers, in order:
 
-1. Restore notary keychain access; rebuild from `e0dea70`, notarize/staple the
-   app and DMG; record artifact evidence (SHA-256, submission IDs, stapler,
-   Gatekeeper).
-2. Clean-machine install QA from the new DMG.
-3. Real-rig audio QA (interface, fades, panic mute, routing, unplug/replug, full setlist).
-4. Real MIDI and connector QA (Ableton/AbleSet or IAC; Lightkey/Luminescence/Show Off/custom OSC as used).
-5. Support-bundle export and manual privacy inspection against the new redaction.
-6. (Closed this pass) Screenshot/layout review — done against `e0dea70`; spot-check
-   the final notarized build during rehearsal.
+1. Clean-machine install QA from `Dead-Air-4.0.1-6.dmg` (quarantined
+   download, double-click open on a Mac that has never run the app).
+2. Real-rig audio QA (interface, fades, panic mute, routing, unplug/replug,
+   full setlist) — pay extra attention to MIDI-heavy rigs to confirm the
+   build-6 crash fix under real controller traffic.
+3. Real MIDI and connector QA (Ableton/AbleSet or IAC; Lightkey/Luminescence/
+   Show Off/custom OSC as used).
+4. Support-bundle export and manual privacy inspection against the new
+   redaction.
