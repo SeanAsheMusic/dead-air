@@ -243,6 +243,8 @@ func runChecks() throws {
 
     var sensitiveConfig = AppConfig()
     sensitiveConfig.audio.preferredOutputUID = "123E4567-E89B-12D3-A456-426614174000"
+    sensitiveConfig.osc.host = "192.168.1.50"
+    sensitiveConfig.lighting.lightkeyHost = "venue-console.local"
     sensitiveConfig.midi.virtualDestinationName = "Dead Air In Private Rig"
     sensitiveConfig.midi.iacBusName = "Logic Venue IAC"
     sensitiveConfig.midi.iacSourceUniqueID = 99
@@ -263,6 +265,14 @@ func runChecks() throws {
     try expect(redactedConfig.lighting.midiDestinationName == PrivacyRedactor.marker, "support config redacts lighting MIDI destination")
     try expect(redactedConfig.lighting.midiDestinationUniqueID == 0, "support config redacts lighting MIDI destination ID")
     try expect(redactedConfig.lighting.cues.isEmpty, "support config removes lighting cue map details")
+    try expect(redactedConfig.osc.host == PrivacyRedactor.marker, "support config redacts non-loopback OSC host")
+    try expect(redactedConfig.lighting.lightkeyHost == PrivacyRedactor.marker, "support config redacts non-loopback lighting host")
+    var loopbackConfig = AppConfig()
+    loopbackConfig.osc.host = "127.0.0.1"
+    loopbackConfig.lighting.lightkeyHost = "localhost"
+    let redactedLoopback = PrivacyRedactor.redactedConfig(loopbackConfig)
+    try expect(redactedLoopback.osc.host == "127.0.0.1", "support config keeps loopback OSC host readable")
+    try expect(redactedLoopback.lighting.lightkeyHost == "localhost", "support config keeps localhost lighting host readable")
 
     var profileConfig = AppConfig()
     profileConfig.audio.targetSampleRate = 96_000

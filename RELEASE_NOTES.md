@@ -1,5 +1,11 @@
 # Dead Air Release Notes
 
+## 4.0.1 Build 7
+
+Support-bundle host redaction.
+
+- Redacted support bundles now mask non-loopback OSC target hosts (inbound OSC host and lighting connector host). Loopback targets (`127.0.0.1`, `localhost`) stay readable because they are identical for every user; venue console IPs and mDNS names are redacted.
+
 ## 4.0.1 Build 6
 
 Show-critical MIDI crash fix and UI polish.

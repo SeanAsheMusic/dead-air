@@ -49,6 +49,14 @@ public enum PrivacyRedactor {
         value == nil ? nil : 0
     }
 
+    /// Loopback targets stay readable because they are identical for every
+    /// user; anything else (venue console IPs, mDNS names) is redacted.
+    public static func redactedHost(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let loopback: Set<String> = ["", "127.0.0.1", "localhost", "::1"]
+        return loopback.contains(trimmed) ? value : marker
+    }
+
     public static func redactedLogEvent(_ event: LogEvent) -> LogEvent {
         redactedLogEvent(event, sensitiveTerms: [])
     }
@@ -68,6 +76,8 @@ public enum PrivacyRedactor {
     public static func redactedConfig(_ config: AppConfig) -> AppConfig {
         var redacted = config
         redacted.audio.preferredOutputUID = redactedOrNil(redacted.audio.preferredOutputUID)
+        redacted.osc.host = redactedHost(redacted.osc.host)
+        redacted.lighting.lightkeyHost = redactedHost(redacted.lighting.lightkeyHost)
         redacted.midi.virtualDestinationName = redactedOrEmpty(redacted.midi.virtualDestinationName)
         redacted.midi.iacBusName = redactedOrEmpty(redacted.midi.iacBusName)
         redacted.midi.iacSourceUniqueID = redactedDeviceID(redacted.midi.iacSourceUniqueID)
