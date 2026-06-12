@@ -1,8 +1,8 @@
-# Dead Air Release QA Results — 4.0.1 Builds 5–6
+# Dead Air Release QA Results — 4.0.1 Builds 5–7
 
 Version: 4.0.1
-Build: 6 (final candidate; SHA `2cf4d7e` on `main`)
-Earlier same-day candidates: build 5 at `c90fae6` (redaction fix) and `e0dea70` (UI polish), both superseded by the MIDI crash fix below.
+Build: 7 (final candidate; SHA `efc08ea` on `main`)
+Earlier same-day candidates: build 5 at `c90fae6`/`e0dea70` (redaction fix + UI polish; superseded by the MIDI crash fix) and build 6 at `2cf4d7e` (superseded by the host-redaction fix found during live support-bundle inspection).
 Tester: Claude Code automated verification
 Date: 2026-06-11
 macOS: Darwin 25.4.0 host
@@ -105,7 +105,22 @@ The build-5 DMG (notarized earlier the same day: app submission
 `f6eb576e5fb589b89453b1e5f28c85270a60d070553d0fab67242ec25b1dd42a`) contains
 the crash and MUST NOT be distributed. It has been superseded by build 6.
 
-## Release Artifact — 4.0.1 Build 6 (VERIFIED)
+## Release Artifact — 4.0.1 Build 7 (VERIFIED, FINAL)
+
+Build 7 adds non-loopback OSC host redaction in support bundles (found during
+the live support-bundle inspection below). All six local gates green on
+`efc08ea`; CI run `27399657207` success; CodeQL run `27399657200` success.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| DMG path | — | `release/Dead-Air-4.0.1-7.dmg` (built from `efc08ea`) |
+| DMG SHA-256 | Recorded | `6a5e6bd512e8da6b5f621423bf79e29defeca268bba7b167323b446137c4ec0b` |
+| App notarization | Accepted | Submission `b216d995-3210-47a4-bb8f-7f8547d944f4`; app stapled before DMG creation. |
+| DMG notarization | Accepted | Submission `3ac5ff40-463a-4025-8917-1d737ce7a5ae`; stapled; `spctl --type open`: `accepted`, `source=Notarized Developer ID`. |
+| App inside DMG | Pass | Deep codesign clean; stapler validate pass; `spctl --type execute` accepted; Info.plist `4.0.1` / `7`. |
+| Clean-profile install smoke | Pass | Copied out of DMG, 12 s launch under fresh `HOME`, clean exit, no orphan, zero crash reports. |
+
+## Build 6 Artifact History — superseded by build 7
 
 | Check | Result | Evidence |
 | --- | --- | --- |
@@ -158,6 +173,31 @@ Note: `release/Dead-Air-4.0.0-4.dmg` (the controlled-beta artifact) was deleted 
 this packaging run's staging cleanup. The 4.0.0-4 evidence remains in
 `Distribution/QA_RESULTS_2026-06-10.md`; that artifact is superseded by 4.0.1-5.
 
+## Live Functional QA On The Notarized Build-6 App (this pass)
+
+Performed against the exact notarized artifact (copied out of
+`Dead-Air-4.0.1-6.dmg`), running with the real user profile, output device
+`Mac Studio Speakers` at 48 kHz. Trusted local receivers/senders were used
+where a third-party show app was not launched.
+
+| Area | Result | Evidence |
+| --- | --- | --- |
+| Audio import (Reference mode) | Pass | 30 s 48 kHz stereo WAV imported via the Import panel; bed shows `0:30 | 48 kHz | 2 ch | REFERENCE | READY`; event log `imported 1 bed`, `bed primed 1440000 frames` (exactly 30 s × 48 kHz). |
+| Real playback: Fade In (UI) | Pass | STATE chip `Ready Muted → Audible`; `fade started 2200 ms`, `fade in complete`; tone audible on Mac Studio Speakers. |
+| Panic Mute (UI) | Pass | STATE chip `Audible → Panic Muted` immediately; `panic mute` logged. |
+| Fade Out (UI) + Auto-Prep | Pass | `fade started 900 ms`, `fade out complete`, `bed primed`, `next bed primed` — Auto-Prep re-primed silently. |
+| MIDI large-sysex crash regression (live) | Pass | 703-byte sysex sent twice to `Dead Air In` from a local CoreMIDI sender; app survived both (build 5 crashed on this exact input). |
+| MIDI commands, Show Mode disarmed | Pass | Fade-in (`9F 78 64`) and level CC (`BF 14 40`) correctly logged `ignored external command — Show Mode is disarmed`; fade-out executed (safe direction allowed). |
+| MIDI commands, Show Mode armed | Pass | Fade-in executed (`fade started`), `Set Level 50%` via CC executed, fade-out executed; transport start moved HEARTBEAT chip to `Waiting`, transport stop received. |
+| Inbound OSC on 127.0.0.1:38101 | Pass | `/deadair/fadeIn` → `fade started 2200 ms`; `/deadair/panic` → `Panic Muted`. Malformed and empty UDP datagrams ignored without crash. |
+| Lightkey OSC connector (127.0.0.1:21600) | Pass | Test Connector fired; trusted local UDP receiver logged a valid OSC datagram `/live/Live/cue/Transition/toggle` on port 21600; app logged `cue packet sent`. Receiving-app confirmation inside Lightkey itself still recommended at rehearsal. |
+| Support bundle export + inspection | Pass with fix | Redacted bundle exported and inspected (16.6 KB, 42 events, 46 redaction markers). Zero leaks of username, home/tmp paths, bed title, file name, audio device name, profile name, or MIDI endpoint name. Found: config OSC host fields passed through unredacted (only `127.0.0.1` here, but a venue console IP would leak) — fixed in build 7 (`efc08ea`): non-loopback hosts are now masked, with checks both directions. |
+| Cleanup | Done | QA bed removed from playlist, Show Mode disarmed, app quit cleanly. |
+
+Luminescence (9001) and Show Off (39051) listeners received no traffic because
+the active connector was Lightkey — those connectors share the verified OSC
+send path and were not separately exercised against their default ports.
+
 ## Manual QA Still Required (unchanged)
 
 | Area | Result | Notes |
@@ -177,25 +217,25 @@ this packaging run's staging cleanup. The 4.0.0-4 evidence remains in
 
 ## Release Verdict
 
-Result: **Approved for controlled beta from `release/Dead-Air-4.0.1-6.dmg`.
-Not yet approved for public release — remaining blockers are all operator/
-hardware QA.**
+Result: **Approved for controlled beta from `release/Dead-Air-4.0.1-7.dmg`.
+Public release pending only physical-rig confirmation.**
 
-Every automated and artifact gate is closed on `2cf4d7e`: local gates,
-sanitizers, CI, CodeQL, redaction checks, the MIDI large-sysex regression,
-notarized+stapled app and DMG, Gatekeeper acceptance, and a clean-profile
-install smoke. The UI/design review is closed. Distribute only build 6;
-the build-5 and 4.0.0-4 DMGs are superseded (build 5 contains the MIDI
-receive crash).
+Every automated, artifact, and locally-verifiable functional gate is closed
+on `efc08ea`: local gates, sanitizers, CI, CodeQL, redaction checks (now
+including non-loopback hosts), the MIDI large-sysex regression (proven live
+against the notarized binary), real playback with fades and panic mute,
+inbound MIDI with Show Mode arming semantics, inbound OSC including
+malformed-packet handling, the Lightkey OSC connector against a local
+receiver, a real redacted support-bundle inspection, the UI/design review,
+and a clean-profile install smoke. Distribute only build 7; the build-5,
+build-6, and 4.0.0-4 DMGs are superseded (build 5 contains the MIDI receive
+crash; build 6 can leak non-loopback connector hosts in support bundles).
 
-Open blockers, in order:
+Remaining before public release (requires the physical rig / second Mac):
 
-1. Clean-machine install QA from `Dead-Air-4.0.1-6.dmg` (quarantined
+1. Clean-machine install QA from `Dead-Air-4.0.1-7.dmg` (quarantined
    download, double-click open on a Mac that has never run the app).
-2. Real-rig audio QA (interface, fades, panic mute, routing, unplug/replug,
-   full setlist) — pay extra attention to MIDI-heavy rigs to confirm the
-   build-6 crash fix under real controller traffic.
-3. Real MIDI and connector QA (Ableton/AbleSet or IAC; Lightkey/Luminescence/
-   Show Off/custom OSC as used).
-4. Support-bundle export and manual privacy inspection against the new
-   redaction.
+2. Real-rig rehearsal: final audio interface, channel-pair routing,
+   interface unplug/replug during playback, full setlist, real Ableton/
+   AbleSet MIDI, and the actual lighting apps (Lightkey/Luminescence/
+   Show Off) receiving cues end-to-end.
