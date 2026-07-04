@@ -175,7 +175,7 @@ struct DeadAirApp: App {
                 Button("Panic Mute") { model.uiCommand(.panic) }
                     .keyboardShortcut(.escape, modifiers: [.command])
                 Divider()
-                Button("Close Main Window to Menu Bar") {
+                Button("Keep in Menu Bar") {
                     closeMainWindowToMenuBar()
                 }
                 .keyboardShortcut("m", modifiers: [.command, .shift])
@@ -1497,7 +1497,7 @@ final class DeadAirModel: ObservableObject {
         switch routed.command {
         case .fadeIn:
             guard activeBed != nil else {
-                warning = "Import at least one audio bed before fading in."
+                warning = "Fade In needs a bed. Import audio into the Playlist first."
                 return
             }
             cancelPlaythroughCrossfade()
@@ -2072,7 +2072,7 @@ struct ContentView: View {
                     Button {
                         model.copyCueMapToClipboard()
                     } label: {
-                        Label("Copy Cue Map", systemImage: "doc.on.doc")
+                        Label("Copy MIDI/OSC Map", systemImage: "doc.on.doc")
                     }
                     Divider()
                     Button {
@@ -2721,7 +2721,7 @@ struct SetupWizardView: View {
                         Stepper("Port \(String(model.config.osc.port))", value: Binding(get: {
                             model.config.osc.port
                         }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
-                        Button("Retry") {
+                        Button("Retry OSC") {
                             model.retryOSC()
                         }
                     }
@@ -2732,7 +2732,7 @@ struct SetupWizardView: View {
                         Stepper("Port \(String(model.config.osc.port))", value: Binding(get: {
                             model.config.osc.port
                         }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
-                        Button("Retry") {
+                        Button("Retry OSC") {
                             model.retryOSC()
                         }
                     }
@@ -3334,7 +3334,7 @@ struct HelpCenterView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Dead Air Help")
-                    .font(.largeTitle.bold())
+                    .font(.title2.bold())
                 Spacer()
                 Text(model.appVersionDisplay)
                     .font(.caption.bold())
@@ -3342,8 +3342,17 @@ struct HelpCenterView: View {
             }
             TextField("Search help", text: $query)
                 .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier(DeadAirAutomationID.helpSearch)
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    if filteredTopics.isEmpty {
+                        Text("No topics match “\(query)”. Try a different term, or open the User Guide below.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .liquidGlassTile()
+                    }
                     ForEach(filteredTopics, id: \.title) { topic in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(topic.title)
@@ -3352,9 +3361,10 @@ struct HelpCenterView: View {
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(14)
+                        .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                        .liquidGlassTile()
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
@@ -3455,7 +3465,7 @@ struct HeaderView: View {
 
             HStack(spacing: 8) {
                 StatusPill(title: "Control", value: model.controlSummary, tone: model.midiOnline || model.oscOnline ? .good : .bad, help: "Current MIDI and OSC ingress state.", automationID: DeadAirAutomationID.statusControl)
-                StatusPill(title: "Connectors", value: model.lightingStatusValue, tone: model.lightingStatusTone, help: "Outbound connector status. Connector failures are logged and do not stop audio.", automationID: DeadAirAutomationID.statusConnectors)
+                StatusPill(title: "Connectors", value: model.lightingStatusValue, tone: model.lightingStatusTone, help: "Outbound Lightkey, Luminescence, Show Off, Custom OSC, or MIDI cue status. Connector failures are logged and do not stop audio.", automationID: DeadAirAutomationID.statusConnectors)
                 Spacer(minLength: 0)
             }
         }
@@ -3521,19 +3531,21 @@ struct MainControlsView: View {
                     ControlButton(title: "Next Bed", systemImage: "forward.fill", tint: StagePalette.nextBed, help: "Select the next enabled bed. If audio is playing, Dead Air crossfades to the next bed.", automationID: DeadAirAutomationID.transportNextBed) {
                         model.uiCommand(.nextBed)
                     }
-                    ControlButton(title: "Panic Mute", systemImage: "exclamationmark.octagon.fill", tint: StagePalette.panic, help: "Immediate hard mute. This has the highest priority and cancels any active fade.", automationID: DeadAirAutomationID.transportPanicMute) {
+                    ControlButton(title: "Panic Mute", systemImage: "exclamationmark.octagon.fill", tint: StagePalette.panic, help: "Immediate hard mute. This has the highest priority and cancels any active fade.", automationID: DeadAirAutomationID.transportPanicMute, emphasized: true) {
                         model.uiCommand(.panic)
                     }
                 }
             }
 
             if let warning = model.warning {
-                Text(warning)
-                    .font(.callout)
-                    .foregroundStyle(.white)
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.red)
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.red, in: RoundedRectangle(cornerRadius: 8))
+                    .statusGlassTile(tint: .red)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Warning. \(warning)")
             }
 
             ShowQuickPanel()
@@ -3616,6 +3628,8 @@ struct ShowQuickPanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help("Out \(model.selectedOutputName) \(model.config.audio.outputLeftChannel)-\(model.config.audio.outputRightChannel) | \(Int(model.config.audio.targetSampleRate / 1000)) kHz")
             }
             .padding(10)
             .liquidGlassTile()
@@ -3629,7 +3643,7 @@ struct ShowQuickPanel: View {
             )
             FadeTimeSlider(
                 title: "Fade Out",
-                help: "Handled inside Dead Air. Use long fade-outs for songs with slow endings or walkout beds.",
+                help: "Handled inside Dead Air. Use long fade-outs for slow-ending or walkout beds.",
                 milliseconds: model.config.audio.fadeOutMs,
                 range: 100 ... 180_000,
                 update: model.setFadeOutMs
@@ -3693,7 +3707,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .audio: "Audio"
         case .playback: "Playback"
-        case .control: "MIDI/OSC"
+        case .control: "Control"
         case .connectors: "Connectors"
         case .library: "Library"
         case .profiles: "Profiles"
@@ -3703,11 +3717,27 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    // One-line direction cue shown under the pane title so inbound control
+    // and outbound connectors are never confused mid-show.
+    var subtitle: String {
+        switch self {
+        case .audio: "Output device, routing, and appearance"
+        case .playback: "Fades, crossfade, and bed advance"
+        case .control: "Inbound MIDI and OSC into Dead Air"
+        case .connectors: "Outbound show cues to lighting and show apps"
+        case .library: "How imported beds are stored"
+        case .profiles: "Reusable venue and rig setups"
+        case .diagnostics: "Event log, heartbeat, and support bundles"
+        case .accessibility: "Contrast, control size, and automation"
+        case .advanced: "Power and recovery behavior"
+        }
+    }
+
     var systemImage: String {
         switch self {
         case .audio: "speaker.wave.2"
         case .playback: "play.circle"
-        case .control: "cable.connector"
+        case .control: "dot.radiowaves.left.and.right"
         case .connectors: "cable.connector.horizontal"
         case .library: "music.note.list"
         case .profiles: "person.crop.rectangle.stack"
@@ -3768,9 +3798,10 @@ struct DeadAirSettingsWindow: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .accessibilityIdentifier(DeadAirAutomationID.settingsSectionPicker)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(.regularMaterial)
 
@@ -3792,18 +3823,39 @@ struct DeadAirSettingsWindow: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .background(selection == section ? Color.accentColor.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(section.title)
+        .accessibilityHint(section.subtitle)
+        .accessibilityAddTraits(selection == section ? [.isSelected] : [])
+        .accessibilityIdentifier(DeadAirAutomationID.settingsSection(section.rawValue))
     }
 
     @ViewBuilder
     private func settingsDetail(for section: SettingsSection) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(section.title)
+                    .font(.title2.bold())
+                Text(section.subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
+
+            sectionBody(for: section)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionBody(for section: SettingsSection) -> some View {
         switch section {
         case .audio:
-            ScrollView {
-                SettingsPanel()
-                    .padding(16)
-            }
+            SettingsPanel()
         case .playback:
             PlaybackSettingsTab()
         case .control:
@@ -3880,7 +3932,7 @@ struct SettingsOSCPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle("Enable OSC", isOn: Binding(get: {
+            Toggle("Enable inbound OSC", isOn: Binding(get: {
                 model.config.osc.enabled
             }, set: { model.setOSCEnabled($0) }))
             Text("Listening on \(model.config.osc.host):\(String(model.config.osc.port)). Last command: \(model.lastCommand)")
@@ -3900,7 +3952,7 @@ struct SettingsOSCPanel: View {
                     }
                 }
             }
-            Button("Copy Cue Map") {
+            Button("Copy MIDI/OSC Map") {
                 model.copyCueMapToClipboard()
             }
         }
@@ -3962,7 +4014,7 @@ struct LightingSettingsTab: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Stepper("Cue dedupe \(model.config.lighting.dedupeWindowMs) ms", value: Binding(get: {
+                    Stepper("Cue dedupe \(String(model.config.lighting.dedupeWindowMs)) ms", value: Binding(get: {
                         model.config.lighting.dedupeWindowMs
                     }, set: { model.setLightingDedupeWindowMs($0) }), in: 0 ... 10_000, step: 100)
 
@@ -3983,7 +4035,7 @@ struct LightingSettingsTab: View {
                         .foregroundStyle(.secondary)
                 }
 
-                SettingsCard(title: "Global Show Cues", systemImage: "rectangle.stack.badge.play", help: "Global cues fire from Dead Air show events. Track-specific cues live in the Track Inspector.") {
+                SettingsCard(title: "Global Show Cues", systemImage: "rectangle.stack.badge.play", help: "Global cues fire from Dead Air show events. Bed-specific cues live in the Bed Inspector.") {
                     HStack {
                         Menu {
                             ForEach(LightingCueTrigger.allCases) { trigger in
@@ -4027,7 +4079,7 @@ struct LightingSettingsTab: View {
     }
 
     private var connectorPortStepper: some View {
-        Stepper("OSC \(model.config.lighting.lightkeyPort)", value: Binding(get: {
+        Stepper("OSC \(String(model.config.lighting.lightkeyPort))", value: Binding(get: {
             model.config.lighting.lightkeyPort
         }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
     }
@@ -4046,13 +4098,13 @@ struct LightingSettingsTab: View {
     }
 
     private var lightingMIDIChannelStepper: some View {
-        Stepper("Ch \(model.config.lighting.midiChannel)", value: Binding(get: {
+        Stepper("Channel \(String(model.config.lighting.midiChannel))", value: Binding(get: {
             model.config.lighting.midiChannel
         }, set: { model.setLightingMIDIChannel($0) }), in: 1 ... 15)
     }
 
     private var lightingMIDIVelocityStepper: some View {
-        Stepper("Vel \(model.config.lighting.midiVelocity)", value: Binding(get: {
+        Stepper("Velocity \(String(model.config.lighting.midiVelocity))", value: Binding(get: {
             model.config.lighting.midiVelocity
         }, set: { model.setLightingMIDIVelocity($0) }), in: 0 ... 127)
     }
@@ -4074,7 +4126,7 @@ struct LightingSettingsTab: View {
         Button {
             model.copyLightingCueMapToClipboard()
         } label: {
-            Label("Copy Cue List", systemImage: "list.bullet.clipboard")
+            Label("Copy Lighting Cues", systemImage: "list.bullet.clipboard")
         }
     }
 }
@@ -4144,6 +4196,9 @@ struct LightingCueEditor: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(cue.name)
                         .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(cue.name)
                     Text("\(cue.trigger.displayName) | \(cue.provider.displayName)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -4231,9 +4286,9 @@ struct LightingCueEditor: View {
                     Text(type.displayName).tag(type)
                 }
             }
-            Stepper("Ch \(cue.midiChannel)", value: binding(\.midiChannel), in: 1 ... 16)
-            Stepper("#\(cue.midiNumber)", value: binding(\.midiNumber), in: 0 ... 127)
-            Stepper("Val \(cue.midiValue)", value: binding(\.midiValue), in: 0 ... 127)
+            Stepper("Ch \(String(cue.midiChannel))", value: binding(\.midiChannel), in: 1 ... 16)
+            Stepper("#\(String(cue.midiNumber))", value: binding(\.midiNumber), in: 0 ... 127)
+            Stepper("Val \(String(cue.midiValue))", value: binding(\.midiValue), in: 0 ... 127)
         }
     }
 
@@ -4276,7 +4331,7 @@ struct LibrarySettingsTab: View {
 
     var body: some View {
         ScrollView {
-            SettingsCard(title: "Library", systemImage: "music.note.list", help: "How Dead Air stores or references imported tracks.") {
+            SettingsCard(title: "Library", systemImage: "music.note.list", help: "How Dead Air stores or references imported beds.") {
                 Picker("Import Mode", selection: Binding(get: {
                     model.config.libraryStorageMode
                 }, set: { model.setLibraryStorageMode($0) })) {
@@ -4364,7 +4419,7 @@ struct DiagnosticsSettingsTab: View {
                 Toggle("Redact paths and device identifiers in support data", isOn: Binding(get: {
                     model.config.logging.redactSensitiveData
                 }, set: { model.setDiagnosticsRedaction(enabled: $0) }))
-                Stepper("Keep logs \(model.config.logging.retentionDays) days", value: Binding(get: {
+                Stepper("Keep logs \(String(model.config.logging.retentionDays)) days", value: Binding(get: {
                     model.config.logging.retentionDays
                 }, set: { model.setDiagnosticsRetentionDays($0) }), in: 1 ... 365)
                 if !model.persistenceRecoveryMessages.isEmpty {
@@ -4406,7 +4461,7 @@ struct AdvancedSettingsTab: View {
                 }, set: { value in
                     model.setHeartbeatEnabled(value)
                 }))
-                Stepper("Heartbeat timeout \(model.config.heartbeat.timeoutMs) ms", value: Binding(get: {
+                Stepper("Heartbeat timeout \(String(model.config.heartbeat.timeoutMs)) ms", value: Binding(get: {
                     model.config.heartbeat.timeoutMs
                 }, set: { value in
                     model.setHeartbeatTimeoutMs(value)
@@ -4484,15 +4539,26 @@ struct AccessibilitySettingsTab: View {
             Text(identifier)
                 .textSelection(.enabled)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label) automation identifier")
+        .accessibilityValue(identifier)
     }
 }
 
 struct SettingsPanel: View {
     @EnvironmentObject private var model: DeadAirModel
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
+        ScrollView {
+            panelContent
+                .padding(16)
+        }
+    }
+
+    private var panelContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(title: "Show Settings", systemImage: "gearshape.2", help: "Persistent show settings for audio routing, level, fades, OSC, and MIDI mapping.")
+            SectionHeader(title: "Output & Appearance", systemImage: "gearshape.2", help: "Audio routing, target level, and appearance. Fades live in Playback; inbound control lives in Control.")
 
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
@@ -4551,74 +4617,9 @@ struct SettingsPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .statusGlassTile(tint: .green)
 
-            VStack(spacing: 10) {
-                FadeTimeSlider(
-                    title: "Fade In",
-                    help: "Handled inside Dead Air. Ableton can close or reopen while this fade continues.",
-                    milliseconds: model.config.audio.fadeInMs,
-                    range: 100 ... 180_000,
-                    update: model.setFadeInMs
-                )
-                FadeTimeSlider(
-                    title: "Fade Out",
-                    help: "Handled inside Dead Air. Use long fade-outs for songs with slow endings or walkout beds.",
-                    milliseconds: model.config.audio.fadeOutMs,
-                    range: 100 ... 180_000,
-                    update: model.setFadeOutMs
-                )
-                FadeTimeSlider(
-                    title: "Live Crossfade",
-                    help: "Used when you manually switch while audible or when Auto-Crossfade reaches the end of a bed.",
-                    milliseconds: model.config.audio.liveCrossfadeMs,
-                    range: 250 ... 60_000,
-                    update: model.setLiveCrossfadeMs
-                )
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                FormLabel("Bed Mode", help: "Controls what happens after fade-out or at the end of an audible bed.")
-                Picker("Bed Mode", selection: Binding(get: {
-                    model.config.bedAdvanceMode
-                }, set: { model.setBedAdvanceMode($0) })) {
-                    ForEach(BedAdvanceMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                Text(model.config.bedAdvanceMode.helpText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-
-            Toggle(isOn: Binding(get: {
-                model.config.osc.enabled
-            }, set: { model.setOSCEnabled($0) })) {
-                HStack(spacing: 5) {
-                    Text("OSC")
-                    HelpIcon("Enables localhost OSC control on 127.0.0.1:\(model.config.osc.port).")
-                }
-            }
-            Text("Port \(String(model.config.osc.port))  |  Last command: \(model.lastCommand)")
+            Text("Fades and bed advance live in Playback. Inbound MIDI and OSC live in Control.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    oscPortStepper
-                    Button("Retry") {
-                        model.retryOSC()
-                    }
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    oscPortStepper
-                    Button("Retry") {
-                        model.retryOSC()
-                    }
-                }
-            }
-
-            MIDIMappingPanel()
         }
         .padding(14)
         .liquidGlassPanel()
@@ -4635,15 +4636,22 @@ struct SettingsPanel: View {
         .pickerStyle(.segmented)
     }
 
+    @ViewBuilder
     private var appearancePicker: some View {
-        Picker("Appearance", selection: Binding(get: {
+        let picker = Picker("Appearance", selection: Binding(get: {
             model.config.appearanceMode
         }, set: { model.setAppearanceMode($0) })) {
             ForEach(DeadAirAppearanceMode.allCases) { mode in
                 Text(mode.displayName).tag(mode)
             }
         }
-        .pickerStyle(.segmented)
+        // Four segments including "Show Dark" overflow at accessibility
+        // type sizes; fall back to a menu that never truncates.
+        if typeSize.isAccessibilitySize {
+            picker.pickerStyle(.menu)
+        } else {
+            picker.pickerStyle(.segmented)
+        }
     }
 
     private var outputPairSection: some View {
@@ -4673,12 +4681,6 @@ struct SettingsPanel: View {
             .labelsHidden()
             .pickerStyle(.segmented)
         }
-    }
-
-    private var oscPortStepper: some View {
-        Stepper("OSC Port \(String(model.config.osc.port))", value: Binding(get: {
-            model.config.osc.port
-        }, set: { model.setOSCPort($0) }), in: 1 ... 65_535)
     }
 
     private var outputPairBinding: Binding<String> {
@@ -4863,7 +4865,10 @@ struct MIDIMappingRow: View {
     private var actionLabel: some View {
         Text(action.displayName)
             .font(.callout.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
             .frame(width: 104, alignment: .leading)
+            .help(action.displayName)
     }
 
     @ViewBuilder
@@ -4878,9 +4883,9 @@ struct MIDIMappingRow: View {
 
         if mapping.messageType.usesChannel {
             Picker("", selection: channelBinding) {
-                Text("Any Ch").tag(0)
+                Text("Any Channel").tag(0)
                 ForEach(1 ... 16, id: \.self) { channel in
-                    Text("Ch \(channel)").tag(channel)
+                    Text("Channel \(String(channel))").tag(channel)
                 }
             }
             .labelsHidden()
@@ -4888,7 +4893,7 @@ struct MIDIMappingRow: View {
         }
 
         if mapping.messageType.usesNumber {
-            Stepper("#\(mapping.number ?? 0)", value: numberBinding, in: 0 ... 127)
+            Stepper("#\(String(mapping.number ?? 0))", value: numberBinding, in: 0 ... 127)
                 .frame(width: 90)
         }
 
@@ -4901,6 +4906,7 @@ struct MIDIMappingRow: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(model.learningMIDIAction == action ? .orange : .accentColor)
+        .accessibilityLabel(model.learningMIDIAction == action ? "Cancel MIDI learn for \(action.displayName)" : "Learn MIDI for \(action.displayName)")
     }
 
     private func mappingSummary(_ mapping: MIDIMapping) -> some View {
@@ -4914,7 +4920,7 @@ struct MIDIMappingRow: View {
     @ViewBuilder
     private func minimumValueStepper(_ mapping: MIDIMapping) -> some View {
         if action != .level, mapping.messageType != .programChange {
-            Stepper("Min \(mapping.valueMin ?? 0)", value: valueMinBinding, in: 0 ... 127)
+            Stepper("Min \(String(mapping.valueMin ?? 0))", value: valueMinBinding, in: 0 ... 127)
                 .font(.caption)
                 .frame(width: 122)
         }
@@ -5047,6 +5053,8 @@ struct LibraryView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    .padding(20)
+                    .liquidGlassTile()
                 }
             }
 
@@ -5177,6 +5185,8 @@ struct BedRow: View {
                 Text(bed.title)
                     .font(.headline)
                     .lineLimit(1)
+                    .help(bed.title)
+                    .accessibilityLabel(bed.artist.flatMap { $0.isEmpty ? nil : "\(bed.title) by \($0)" } ?? bed.title)
                 HStack(spacing: 6) {
                     if let artist = bed.artist, !artist.isEmpty {
                         Text(artist)
@@ -5250,7 +5260,7 @@ struct TrackInspectorView: View {
         Group {
             if let binding = model.bindingForSelectedBed() {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionHeader(title: "Track Inspector", systemImage: "tag", help: "Edit DJ-useful metadata for sorting, filtering, and choosing compatible next beds.")
+                    SectionHeader(title: "Bed Inspector", systemImage: "tag", help: "Edit DJ-useful metadata for sorting, filtering, and choosing compatible next beds.")
                     TextField("Title", text: binding.title)
                         .textFieldStyle(.roundedBorder)
                     HStack {
@@ -5264,7 +5274,7 @@ struct TrackInspectorView: View {
                             .frame(width: 88)
                     }
                     HStack {
-                        Stepper("Energy \(binding.wrappedValue.energy ?? 0)", value: optionalInt(binding.energy), in: 0 ... 10)
+                        Stepper("Energy \(String(binding.wrappedValue.energy ?? 0))", value: optionalInt(binding.energy), in: 0 ... 10)
                         Toggle("Enabled", isOn: binding.enabled)
                         Toggle("Loop", isOn: binding.seamlessLoop)
                     }
@@ -5295,7 +5305,7 @@ struct TrackInspectorView: View {
                                         }
                                     }
                                 } label: {
-                                    Label("Add Track Cue", systemImage: "plus")
+                                    Label("Add Bed Cue", systemImage: "plus")
                                 }
                                 Spacer()
                                 Text("\(binding.wrappedValue.lightingCues.count) cue\(binding.wrappedValue.lightingCues.count == 1 ? "" : "s")")
@@ -5304,7 +5314,7 @@ struct TrackInspectorView: View {
                             }
 
                             if binding.wrappedValue.lightingCues.isEmpty {
-                                Text("Track cues fire only for this selected bed. Use them for walkout looks, transition cover scenes, or panic looks tied to one bed.")
+                                Text("Bed cues fire only for this selected bed. Use them for walkout looks, transition cover scenes, or panic looks tied to one bed.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             } else {
@@ -5416,11 +5426,15 @@ struct EventLogView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(event.message)
                                     .font(.callout.weight(.semibold))
+                                    .lineLimit(3)
                                 HStack {
                                     Text(event.source)
                                     if let raw = event.raw {
                                         Text(raw)
                                             .lineLimit(1)
+                                            .truncationMode(.middle)
+                                            .help(raw)
+                                            .textSelection(.enabled)
                                     }
                                 }
                                 .font(.caption)
@@ -5475,7 +5489,8 @@ struct ReadinessPanel: View {
                         Text(item.detail)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .lineLimit(2)
+                            .help(item.detail)
                     }
                     Spacer()
                 }
@@ -5489,7 +5504,7 @@ struct ReadinessPanel: View {
             Button {
                 model.copyCueMapToClipboard()
             } label: {
-                Label("Copy Cue Map", systemImage: "doc.on.doc")
+                Label("Copy MIDI/OSC Map", systemImage: "doc.on.doc")
                     .frame(maxWidth: .infinity)
             }
             .help("Copies the Ableton/AbleSet MIDI and OSC cue map to the clipboard.")
@@ -5499,7 +5514,7 @@ struct ReadinessPanel: View {
                 Button {
                     model.testLightingCue()
                 } label: {
-                    Label("Test Connector", systemImage: "paperplane")
+                    Label("Send Test Cue", systemImage: "paperplane")
                         .frame(maxWidth: .infinity)
                 }
                 .help("Sends the first enabled outbound cue or a sample OSC/MIDI cue.")
@@ -5543,6 +5558,13 @@ struct MenuBarControls: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+            if let warning = model.warning, !warning.isEmpty {
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Divider()
             Button("Fade In") { model.uiCommand(.fadeIn) }
                 .accessibilityIdentifier(DeadAirAutomationID.menuBarFadeIn)
@@ -5557,6 +5579,7 @@ struct MenuBarControls: View {
                 model.config.showModeArmed
             }, set: { model.setShowModeArmed($0) }))
             .accessibilityHint("Controls whether external MIDI and OSC can start audio.")
+            .accessibilityIdentifier(DeadAirAutomationID.menuBarShowModeToggle)
             Button("Open Dead Air") {
                 NSApplication.shared.activate(ignoringOtherApps: true)
                 openWindow(id: "main")
@@ -5564,13 +5587,17 @@ struct MenuBarControls: View {
                     NSApplication.shared.activate(ignoringOtherApps: true)
                 }
             }
-            Button("Settings") {
+            .accessibilityIdentifier(DeadAirAutomationID.menuBarOpenWindow)
+            Button("Settings…") {
                 NSApplication.shared.activate(ignoringOtherApps: true)
                 openWindow(id: "settings")
             }
-            Button("Quit") {
+            .accessibilityIdentifier(DeadAirAutomationID.menuBarSettings)
+            Divider()
+            Button("Quit Dead Air") {
                 NSApplication.shared.terminate(nil)
             }
+            .accessibilityIdentifier(DeadAirAutomationID.menuBarQuit)
         }
         .padding(8)
         .frame(width: 260)
@@ -5580,12 +5607,16 @@ struct MenuBarControls: View {
 
 struct ControlButton: View {
     @Environment(\.deadAirAccessibility) private var appAccessibility
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     let title: String
     let systemImage: String
     let tint: Color
     let help: String
     let automationID: String
+    // Elevated treatment for the emergency control; explicit so a future
+    // rename or localization of the label can never silently drop it.
+    var emphasized: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -5604,13 +5635,13 @@ struct ControlButton: View {
             .frame(maxWidth: .infinity, minHeight: controlHeight)
             .padding(.horizontal, 8)
             .background(
-                tint.opacity(title == "Panic Mute" ? 0.22 : 0.10),
+                tint.opacity(emphasized ? 0.22 : 0.10),
                 in: RoundedRectangle(cornerRadius: 8)
             )
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(tint.opacity(title == "Panic Mute" ? 0.55 : 0.22), lineWidth: title == "Panic Mute" ? 1.25 : 1)
+                    .stroke(tint.opacity(emphasized ? 0.55 : 0.22), lineWidth: emphasized ? 1.25 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -5620,16 +5651,20 @@ struct ControlButton: View {
         .accessibilityIdentifier(automationID)
     }
 
+    private var useLargeControls: Bool {
+        appAccessibility.largerTransportControls || typeSize.isAccessibilitySize
+    }
+
     private var controlHeight: CGFloat {
-        appAccessibility.largerTransportControls ? 142 : 112
+        useLargeControls ? 142 : 112
     }
 
     private var iconSize: CGFloat {
-        appAccessibility.largerTransportControls ? 38 : 31
+        useLargeControls ? 38 : 31
     }
 
     private var titleSize: CGFloat {
-        appAccessibility.largerTransportControls ? 18 : 16
+        useLargeControls ? 18 : 16
     }
 }
 
@@ -5693,7 +5728,7 @@ struct SectionHeader: View {
                 .font(.callout.weight(.medium))
                 .foregroundStyle(.tertiary)
             Text(title)
-                .font(.callout.weight(.semibold))
+                .font(.headline)
             HelpIcon(help)
                 .foregroundStyle(.secondary)
         }

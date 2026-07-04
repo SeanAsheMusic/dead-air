@@ -1,5 +1,17 @@
 # Dead Air Release Notes
 
+## 4.0.1 Build 9
+
+Settings, Help, menu bar, and terminology refinement.
+
+- Settings tabs now each own their controls: the Audio tab covers output, routing, level, and appearance only; fades and bed advance live in Playback; inbound MIDI/OSC lives in the renamed Control tab. Every pane has a title with a one-line direction cue so inbound control and outbound connectors are never confused.
+- The menu bar controls now surface active warnings, use standard macOS menu conventions (Settings…, separated Quit Dead Air), and are fully scriptable via stable automation identifiers.
+- One vocabulary everywhere: the Bed Inspector (formerly "Track Inspector"), bed cues, "Send Test Cue", "Copy MIDI/OSC Map" vs "Copy Lighting Cues", and spelled-out Channel/Velocity labels.
+- All remaining numeric fields (connector port, dedupe window, MIDI channel/velocity/note numbers, energy) render without locale grouping.
+- Long names never break layouts: bed titles, cue names, device names, and log payloads truncate gracefully with full-text tooltips; readiness details wrap to two lines.
+- Help Center matches the app's design language, announces topics properly to VoiceOver, and shows a friendly empty state for unmatched searches.
+- Panic Mute's elevated styling is now structural rather than tied to its label, and transport controls grow automatically at accessibility text sizes.
+
 ## 4.0.1 Build 8
 
 Setup Assistant redesign — responsive and first-party macOS polish.

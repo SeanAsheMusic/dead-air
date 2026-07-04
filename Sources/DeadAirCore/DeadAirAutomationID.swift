@@ -38,13 +38,29 @@ public enum DeadAirAutomationID {
 
     public static let settingsWindow = "deadAir.settings.window"
     public static let settingsAccessibility = "deadAir.settings.accessibility"
+    public static let settingsSectionPicker = "deadAir.settings.sectionPicker"
+
+    public static func settingsSection(_ rawValue: String) -> String {
+        "deadAir.settings.section.\(rawValue)"
+    }
+
+    public static let helpSearch = "deadAir.help.search"
 
     public static let menuBarControls = "deadAir.menuBar.controls"
     public static let menuBarFadeIn = "deadAir.menuBar.fadeIn"
     public static let menuBarFadeOut = "deadAir.menuBar.fadeOut"
     public static let menuBarNextBed = "deadAir.menuBar.nextBed"
     public static let menuBarPanicMute = "deadAir.menuBar.panicMute"
+    public static let menuBarShowModeToggle = "deadAir.menuBar.showModeToggle"
+    public static let menuBarOpenWindow = "deadAir.menuBar.openWindow"
+    public static let menuBarSettings = "deadAir.menuBar.settings"
+    public static let menuBarQuit = "deadAir.menuBar.quit"
 
+    /// Show-critical identifiers only: the controls an operator (or local
+    /// automation helper) must be able to reach during a live set. Window
+    /// conveniences (open/settings/quit, help search, settings navigation)
+    /// are intentionally excluded — add here only if losing the identifier
+    /// would break a mid-show workflow.
     public static let allCritical: [String] = [
         root,
         mainSurface,
@@ -81,6 +97,7 @@ public enum DeadAirAutomationID {
         menuBarFadeIn,
         menuBarFadeOut,
         menuBarNextBed,
-        menuBarPanicMute
+        menuBarPanicMute,
+        menuBarShowModeToggle
     ]
 }
