@@ -7,8 +7,8 @@ For fast setup, see [QUICKSTART.md](QUICKSTART.md). For operator instructions, s
 ## Commercial Readiness V4.0.1
 
 - Company and bundle identity aligned to Undeniable Spectacle: `com.undeniablespectacle.deadair`
-- Version reads from the app bundle: `4.0.1` build `7`
-- First-run Setup Assistant with EZ Setup presets, audio routing, file behavior, inbound control, connector walkthroughs, and final readiness checks
+- Version reads from the app bundle: `4.0.1` build `8`
+- First-run Setup Assistant with guided rig presets, audio routing, file behavior, inbound control, connector walkthroughs, and final readiness checks
 - Built-in setup presets for Ableton/AbleSet + Lightkey, Ableton/AbleSet + Luminescence, Show Off bridge, generic DAW MIDI, IAC legacy rigs, DJ manual operation, QLab OSC, and reference-file workflows
 - Simple/Advanced UI modes plus System, Show Dark, Light, and Dark appearance modes
 - Searchable built-in Help Center and macOS Help menu entry

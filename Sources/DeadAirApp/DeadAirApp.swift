@@ -2032,7 +2032,7 @@ struct ContentView: View {
             }, set: { model.isSetupWizardPresented = $0 }))
                 .environmentObject(model)
                 .environment(\.deadAirAccessibility, model.config.accessibility)
-                .frame(minWidth: 360, idealWidth: 920, minHeight: 360, idealHeight: 640)
+                .frame(minWidth: 840, idealWidth: 900, maxWidth: 1040, minHeight: 500, idealHeight: 680, maxHeight: 840)
                 .preferredColorScheme(model.preferredColorScheme)
         }
         .sheet(isPresented: Binding(get: {
@@ -2235,9 +2235,9 @@ private enum SetupWizardStep: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .preset: "EZ Setup"
+        case .preset: "Preset"
         case .audio: "Audio"
-        case .files: "Files & Control"
+        case .files: "Control"
         case .connectors: "Connectors"
         case .finish: "Finish"
         }
@@ -2334,6 +2334,7 @@ private enum ConnectorSetupOption: String, CaseIterable, Identifiable {
 
 struct SetupWizardView: View {
     @EnvironmentObject private var model: DeadAirModel
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Binding var isPresented: Bool
     @State private var preset: ShowSetupPreset = .abletonLightkey
     @State private var profileName = "Guided Pro Setup"
@@ -2342,7 +2343,7 @@ struct SetupWizardView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            if geometry.size.width < 720 {
+            if geometry.size.width < 760 {
                 compactWizardLayout
             } else {
                 regularWizardLayout
@@ -2369,27 +2370,28 @@ struct SetupWizardView: View {
     private var regularWizardLayout: some View {
         HStack(spacing: 0) {
             wizardRail
-                .frame(width: 235)
-                .padding(18)
+                .frame(minWidth: 200, idealWidth: 235, maxWidth: 260)
+                .padding(16)
                 .background(.regularMaterial)
 
             VStack(spacing: 0) {
                 wizardHeader
-                    .padding(.horizontal, 26)
-                    .padding(.top, 22)
-                    .padding(.bottom, 14)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
+                    .padding(.bottom, 16)
 
                 Divider()
 
                 ScrollView {
                     stepContent(compact: false)
-                        .padding(26)
+                        .padding(24)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+                .frame(minHeight: 260)
 
                 Divider()
                 wizardFooter
-                    .padding(18)
+                    .padding(16)
                     .background(.regularMaterial)
             }
         }
@@ -2398,137 +2400,161 @@ struct SetupWizardView: View {
     private var compactWizardLayout: some View {
         VStack(spacing: 0) {
             compactWizardHeader
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
                 .background(.regularMaterial)
 
             Divider()
 
             ScrollView {
                 stepContent(compact: true)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(16)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .frame(minHeight: 240)
 
             Divider()
             wizardFooter
-                .padding(12)
+                .padding(16)
                 .background(.regularMaterial)
         }
     }
 
     private var compactWizardHeader: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 LogoMarkView(size: 34)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Dead Air Setup")
+                    Text("Setup Assistant")
                         .font(.headline)
-                    Text("\(currentStepIndex + 1) of \(SetupWizardStep.allCases.count)")
+                    Text("Step \(currentStepIndex + 1) of \(SetupWizardStep.allCases.count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
-                Picker("Step", selection: $step) {
-                    ForEach(SetupWizardStep.allCases) { item in
-                        Label(item.title, systemImage: item.systemImage).tag(item)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(maxWidth: 180)
-                .accessibilityIdentifier(DeadAirAutomationID.setupStepPicker)
+                Spacer(minLength: 8)
+                Image(systemName: step.systemImage)
+                    .font(.title3)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityHidden(true)
             }
 
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    Text(step.title)
-                        .font(.title2.bold())
-                    Text(headerSubtitle)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(step.title)
-                        .font(.title2.bold())
-                    Text(headerSubtitle)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            StepProgressBar(steps: SetupWizardStep.allCases, currentIndex: currentStepIndex) { index in
+                moveToIndex(index)
+            }
+            .accessibilityIdentifier(DeadAirAutomationID.setupStepPicker)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(step.title)
+                    .font(.title2.bold())
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(headerSubtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .contain)
     }
 
     private var wizardRail: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 LogoMarkView(size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Dead Air")
                         .font(.title3.bold())
-                    Text("Setup")
+                    Text("Setup Assistant")
                         .font(.caption.bold())
                         .foregroundStyle(.secondary)
                 }
             }
 
-            Text("EZ Setup walks through audio, control, connectors, and final show checks.")
+            Text("Guided setup walks through your rig, audio, control, connectors, and final checks.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 ForEach(SetupWizardStep.allCases) { item in
-                    Button {
-                        step = item
-                    } label: {
-                        HStack(spacing: 10) {
-                            ZStack {
-                                Circle()
-                                    .fill(stepIndex(item) <= currentStepIndex ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.12))
-                                Image(systemName: stepIndex(item) < currentStepIndex ? "checkmark" : item.systemImage)
-                                    .font(.caption.bold())
-                                    .foregroundStyle(stepIndex(item) <= currentStepIndex ? Color.accentColor : Color.secondary)
-                            }
-                            .frame(width: 30, height: 30)
-
-                            Text(item.title)
-                                .font(.callout.weight(step == item ? .bold : .medium))
-                                .foregroundStyle(step == item ? Color.primary : Color.secondary)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(step == item ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 10))
-                    }
-                    .buttonStyle(.plain)
+                    railStepButton(item)
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Setup steps")
 
-            Spacer()
+            Spacer(minLength: 12)
 
-            WizardMiniStatus(title: "Output", value: model.selectedOutputName, systemImage: "speaker.wave.2")
-            WizardMiniStatus(title: "Control", value: model.controlSummary, systemImage: "cable.connector")
+            VStack(spacing: 8) {
+                WizardMiniStatus(title: "Output", value: model.selectedOutputName, systemImage: "speaker.wave.2")
+                WizardMiniStatus(title: "Inbound", value: model.controlSummary, systemImage: "dot.radiowaves.left.and.right")
+                WizardMiniStatus(
+                    title: "Connector",
+                    value: model.config.lighting.enabled ? model.config.lighting.defaultProvider.displayName : "Off",
+                    systemImage: "cable.connector.horizontal"
+                )
+            }
         }
     }
 
+    @ViewBuilder
+    private func railStepButton(_ item: SetupWizardStep) -> some View {
+        let index = stepIndex(item)
+        let isCurrent = step == item
+        let isVisited = index < currentStepIndex
+        let reachable = index <= currentStepIndex
+
+        Button {
+            if reachable { step = item }
+        } label: {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(reachable ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.12))
+                    Image(systemName: isVisited ? "checkmark" : item.systemImage)
+                        .font(.caption.bold())
+                        .foregroundStyle(reachable ? Color.accentColor : Color.secondary)
+                }
+                .frame(width: 30, height: 30)
+
+                Text(item.title)
+                    .font(.callout.weight(isCurrent ? .bold : .medium))
+                    .foregroundStyle(isCurrent ? Color.primary : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isCurrent ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!reachable)
+        .accessibilityLabel(item.title)
+        .accessibilityValue(isVisited ? "Completed" : (isCurrent ? "Current step" : "Not started"))
+        .accessibilityHint("Step \(index + 1) of \(SetupWizardStep.allCases.count)")
+        .accessibilityAddTraits(isCurrent ? [.isSelected] : [])
+    }
+
     private var wizardHeader: some View {
-        HStack(alignment: .center) {
+        HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(step.title)
-                    .font(.largeTitle.bold())
+                    .font(.title2.bold())
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(headerSubtitle)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
-            Text("\(currentStepIndex + 1) of \(SetupWizardStep.allCases.count)")
-                .font(.system(.caption, design: .monospaced).weight(.bold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.accentColor.opacity(0.14), in: Capsule())
+            Spacer(minLength: 12)
+            Image(systemName: step.systemImage)
+                .font(.title)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Color.accentColor)
+                .accessibilityHidden(true)
         }
     }
 
@@ -2549,13 +2575,13 @@ struct SetupWizardView: View {
     }
 
     private func presetStep(compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 10 : 18) {
-            if compact {
-                Text("Pick the closest rig. You can adjust audio, inbound control, and connectors before saving.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Pick the closest rig. It applies right away — fine-tune audio, control, and connectors on the next screens.")
+                .font(compact ? .caption : .callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
+            if compact {
                 LazyVStack(spacing: 8) {
                     ForEach(ShowSetupPreset.allCases) { option in
                         CompactPresetRow(
@@ -2563,19 +2589,11 @@ struct SetupWizardView: View {
                             isSelected: preset == option,
                             isRecommended: option == .abletonLightkey
                         ) {
-                            preset = option
-                            profileName = option.profileName
-                            model.applySetupPreset(option)
+                            selectPreset(option)
                         }
                     }
                 }
             } else {
-                WizardInsightRow(
-                    title: "Start here",
-                    detail: "Choose the closest rig. The next screens make every important choice visible, so you can adjust audio, inbound control, and connector behavior before saving.",
-                    systemImage: "checklist.checked"
-                )
-
                 LazyVGrid(columns: adaptivePresetColumns, spacing: 12) {
                     ForEach(ShowSetupPreset.allCases) { option in
                         WizardPresetCard(
@@ -2583,20 +2601,24 @@ struct SetupWizardView: View {
                             isSelected: preset == option,
                             isRecommended: option == .abletonLightkey
                         ) {
-                            preset = option
-                            profileName = option.profileName
-                            model.applySetupPreset(option)
+                            selectPreset(option)
                         }
                     }
                 }
-
-                WizardInsightRow(
-                    title: "Selected setup",
-                    detail: preset.helpText,
-                    systemImage: preset.systemIcon
-                )
             }
+
+            WizardInsightRow(
+                title: "Selected setup",
+                detail: preset.helpText,
+                systemImage: preset.systemIcon
+            )
         }
+    }
+
+    private func selectPreset(_ option: ShowSetupPreset) {
+        preset = option
+        profileName = option.profileName
+        model.applySetupPreset(option)
     }
 
     private var audioStep: some View {
@@ -2617,11 +2639,11 @@ struct SetupWizardView: View {
                         Text("\(pair.left)-\(pair.right)").tag("\(pair.left)-\(pair.right)")
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
             }
 
             WizardControlCard(title: "Sample Rate") {
-                Picker("Sample Rate", selection: Binding(get: {
+                let sampleRate = Picker("Sample Rate", selection: Binding(get: {
                     model.config.audio.targetSampleRate
                 }, set: { model.setSampleRate($0) })) {
                     Text("44.1").tag(44_100.0)
@@ -2629,19 +2651,12 @@ struct SetupWizardView: View {
                     Text("88.2").tag(88_200.0)
                     Text("96").tag(96_000.0)
                 }
-                .pickerStyle(.segmented)
+                ViewThatFits(in: .horizontal) {
+                    sampleRate.pickerStyle(.segmented)
+                    sampleRate.pickerStyle(.menu)
+                }
             }
 
-            WizardReadinessStrip(
-                title: model.outputRouteDetail,
-                detail: model.sampleRatePreflightDetail,
-                isReady: model.outputRouteIsReady && model.sampleRateRouteIsReady
-            )
-        }
-    }
-
-    private var filesStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
             WizardControlCard(title: "Audio Files") {
                 Picker("Import Mode", selection: Binding(get: {
                     model.config.libraryStorageMode
@@ -2654,8 +2669,19 @@ struct SetupWizardView: View {
                 Text(model.config.libraryStorageMode.helpText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
+            WizardReadinessStrip(
+                title: model.outputRouteDetail,
+                detail: model.sampleRatePreflightDetail,
+                isReady: model.outputRouteIsReady && model.sampleRateRouteIsReady
+            )
+        }
+    }
+
+    private var filesStep: some View {
+        VStack(alignment: .leading, spacing: 16) {
             WizardControlCard(title: "MIDI Source") {
                 Picker("Input Mode", selection: Binding(get: {
                     model.config.midi.mode
@@ -2726,59 +2752,66 @@ struct SetupWizardView: View {
 
     private var connectorsStep: some View {
         VStack(alignment: .leading, spacing: 16) {
-            WizardControlCard(title: "Connector Target") {
-                Toggle("Enable outbound show cues", isOn: Binding(get: {
-                    model.config.lighting.enabled
-                }, set: { model.setLightingEnabled($0) }))
-                Picker("Connector", selection: Binding(get: {
-                    model.config.lighting.defaultProvider
-                }, set: { model.setLightingDefaultProvider($0) })) {
-                    ForEach(LightingProvider.allCases) { provider in
-                        Text(provider.displayName).tag(provider)
-                    }
-                }
-                .pickerStyle(.menu)
-                ViewThatFits(in: .horizontal) {
-                    HStack {
-                        TextField("Host", text: Binding(get: {
-                            model.config.lighting.lightkeyHost
-                        }, set: { model.setLightkeyHost($0) }))
-                        .textFieldStyle(.roundedBorder)
-
-                        Stepper("Port \(String(model.config.lighting.lightkeyPort))", value: Binding(get: {
-                            model.config.lighting.lightkeyPort
-                        }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
-                    }
-                    VStack(alignment: .leading, spacing: 8) {
-                        TextField("Host", text: Binding(get: {
-                            model.config.lighting.lightkeyHost
-                        }, set: { model.setLightkeyHost($0) }))
-                        .textFieldStyle(.roundedBorder)
-
-                        Stepper("Port \(String(model.config.lighting.lightkeyPort))", value: Binding(get: {
-                            model.config.lighting.lightkeyPort
-                        }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
-                    }
-                }
-                Text("The selected connector sets safe defaults. You can still override host, port, and cue addresses for venue-specific rigs.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             LazyVGrid(columns: adaptiveConnectorColumns, spacing: 12) {
-                ForEach(ConnectorSetupOption.allCases) { option in
+                ForEach(ConnectorSetupOption.allCases.filter { $0.provider != nil }) { option in
                     ConnectorSetupCard(
                         option: option,
-                        isSelected: option.provider == model.config.lighting.defaultProvider,
+                        isSelected: model.config.lighting.enabled && option.provider == model.config.lighting.defaultProvider,
                         detail: option.detail(config: model.config)
                     ) {
                         if let provider = option.provider {
                             model.setLightingEnabled(true)
                             model.setLightingDefaultProvider(provider)
-                        } else {
-                            model.setOSCEnabled(true)
                         }
                     }
+                }
+
+                WizardSelectableCard(
+                    isSelected: !model.config.lighting.enabled,
+                    a11yLabel: "No outbound cues",
+                    a11yValue: !model.config.lighting.enabled ? "Selected" : "",
+                    a11yHint: "Dead Air sends no lighting cues. Inbound MIDI and OSC still trigger playback.",
+                    minHeight: typeSize.isAccessibilitySize ? nil : 108,
+                    action: { model.setLightingEnabled(false) }
+                ) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "nosign")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(!model.config.lighting.enabled ? Color.accentColor : Color.secondary)
+                            Spacer()
+                            if !model.config.lighting.enabled {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(Color.accentColor)
+                            }
+                        }
+                        Text("No Outbound Cues")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Text("Manual or inbound-only show.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            if model.config.lighting.enabled, model.config.lighting.defaultProvider.usesOSC {
+                WizardControlCard(title: "Connector Address") {
+                    ViewThatFits(in: .horizontal) {
+                        HStack {
+                            connectorHostField
+                            connectorPortStepper
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            connectorHostField
+                            connectorPortStepper
+                        }
+                    }
+                    Text("Loopback (127.0.0.1) keeps cues on this Mac. Override host and port for a networked console.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -2807,12 +2840,25 @@ struct SetupWizardView: View {
         }
     }
 
+    private var connectorHostField: some View {
+        TextField("Host", text: Binding(get: {
+            model.config.lighting.lightkeyHost
+        }, set: { model.setLightkeyHost($0) }))
+        .textFieldStyle(.roundedBorder)
+    }
+
+    private var connectorPortStepper: some View {
+        Stepper("Port \(String(model.config.lighting.lightkeyPort))", value: Binding(get: {
+            model.config.lighting.lightkeyPort
+        }, set: { model.setLightkeyPort($0) }), in: 1 ... 65_535)
+    }
+
     private var adaptivePresetColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 190), spacing: 12)]
+        [GridItem(.adaptive(minimum: 200, maximum: 320), spacing: 12)]
     }
 
     private var adaptiveConnectorColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 145), spacing: 12)]
+        [GridItem(.adaptive(minimum: 170, maximum: 260), spacing: 12)]
     }
 
     private var connectorTestButton: some View {
@@ -2852,6 +2898,7 @@ struct SetupWizardView: View {
             Button("Cancel") {
                 isPresented = false
             }
+            .keyboardShortcut(.cancelAction)
             .accessibilityIdentifier(DeadAirAutomationID.setupCancel)
 
             Spacer()
@@ -2878,10 +2925,10 @@ struct SetupWizardView: View {
 
     private var headerSubtitle: String {
         switch step {
-        case .preset: "Choose the closest rig, then confirm every connector."
-        case .audio: "Choose the output Dead Air should own."
-        case .files: "Pick file behavior and inbound control."
-        case .connectors: "Walk through Lightkey, Luminescence, Show Off, Custom OSC, and MIDI."
+        case .preset: "Pick the closest rig. Everything is adjustable on the next screens."
+        case .audio: "Choose the output, sample rate, and how files are stored."
+        case .files: "Set how MIDI and OSC drive Dead Air."
+        case .connectors: "Send show cues to Lightkey, Luminescence, Show Off, or any OSC receiver."
         case .finish: "Name it, verify it, save it."
         }
     }
@@ -2893,7 +2940,7 @@ struct SetupWizardView: View {
 
     private var connectorReadinessDetail: String {
         guard model.config.lighting.enabled else {
-            return "Manual-only setups can leave outbound cues disabled. Inbound MIDI and OSC still work from Files & Control."
+            return "Manual-only setups can leave outbound cues disabled. Inbound MIDI and OSC still work from the Control step."
         }
         return "\(model.config.lighting.lightkeyHost):\(model.config.lighting.lightkeyPort) | \(model.lastLightingEventSummary)"
     }
@@ -2903,17 +2950,17 @@ struct SetupWizardView: View {
     }
 
     private var selectedConnectorGuideTitle: String {
-        model.config.lighting.enabled ? "\(selectedConnectorOption.title) setup" : "Inbound control setup"
+        model.config.lighting.enabled ? "\(selectedConnectorOption.title) setup" : "Outbound cues are off"
     }
 
     private var selectedConnectorGuideDetail: String {
         model.config.lighting.enabled
             ? selectedConnectorOption.detail(config: model.config)
-            : ConnectorSetupOption.inboundControl.detail(config: model.config)
+            : "Dead Air will send no lighting cues. Inbound MIDI and OSC still trigger playback from the Control step."
     }
 
     private var selectedConnectorGuideIcon: String {
-        model.config.lighting.enabled ? selectedConnectorOption.systemImage : ConnectorSetupOption.inboundControl.systemImage
+        model.config.lighting.enabled ? selectedConnectorOption.systemImage : "nosign"
     }
 
     private var currentStepIndex: Int {
@@ -2930,6 +2977,11 @@ struct SetupWizardView: View {
         step = steps[nextIndex]
     }
 
+    private func moveToIndex(_ index: Int) {
+        let steps = SetupWizardStep.allCases
+        step = steps[min(max(index, 0), steps.count - 1)]
+    }
+
     private var stereoPairBinding: Binding<String> {
         Binding {
             "\(model.config.audio.outputLeftChannel)-\(model.config.audio.outputRightChannel)"
@@ -2942,27 +2994,111 @@ struct SetupWizardView: View {
     }
 }
 
+// Slim segmented progress indicator for the compact header. Filled segments
+// (visited + current) are tappable to jump back; forward segments are inert.
+// Decorative for VoiceOver — the header already announces "Step N of M".
+private struct StepProgressBar: View {
+    let steps: [SetupWizardStep]
+    let currentIndex: Int
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(steps.enumerated()), id: \.element.id) { index, _ in
+                Capsule()
+                    .fill(index <= currentIndex ? Color.accentColor : Color.secondary.opacity(0.25))
+                    .frame(height: 4)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if index <= currentIndex { onSelect(index) }
+                    }
+            }
+        }
+        .padding(.vertical, -6)
+        .accessibilityHidden(true)
+    }
+}
+
+// Shared "Recommended" pill used across preset layouts so the badge never
+// diverges. Decorative: the recommendation is folded into the card's
+// accessibility label, so this is hidden from VoiceOver.
+private struct RecommendedBadge: View {
+    var body: some View {
+        Text("Recommended")
+            .font(.caption2.bold())
+            .foregroundStyle(Color.accentColor)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(Color.accentColor.opacity(0.16), in: Capsule())
+            .accessibilityHidden(true)
+    }
+}
+
+// The single selectable-card surface for the wizard. One base tile (which
+// already honors Reduce Transparency and the high-contrast setting) plus an
+// additive accent tint + border for selection, and accessibility baked in so
+// no call site can forget it. Replaces three hand-rolled card treatments.
+private struct WizardSelectableCard<Content: View>: View {
+    let isSelected: Bool
+    let a11yLabel: String
+    let a11yValue: String
+    let a11yHint: String
+    var minHeight: CGFloat? = nil
+    var alignment: Alignment = .topLeading
+    let action: () -> Void
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Button(action: action) {
+            content
+                .padding(16)
+                .frame(maxWidth: .infinity, minHeight: minHeight, alignment: alignment)
+                .liquidGlassTile()
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.accentColor.opacity(isSelected ? 0.10 : 0))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.accentColor, lineWidth: 1.5)
+                        .opacity(isSelected ? 1 : 0)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11yLabel)
+        .accessibilityValue(a11yValue)
+        .accessibilityHint(a11yHint)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+
 private struct WizardPresetCard: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let preset: ShowSetupPreset
     let isSelected: Bool
     let isRecommended: Bool
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
+        WizardSelectableCard(
+            isSelected: isSelected,
+            a11yLabel: preset.displayName + (isRecommended ? ", Recommended" : ""),
+            a11yValue: isSelected ? "Selected" : "",
+            a11yHint: preset.helpText,
+            minHeight: typeSize.isAccessibilitySize ? nil : 138,
+            action: action
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: preset.systemIcon)
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     Spacer()
-                    if isRecommended {
-                        Text("Recommended")
-                            .font(.caption2.bold())
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 4)
-                            .background(Color.accentColor.opacity(0.16), in: Capsule())
-                    } else if isSelected {
+                    if isRecommended { RecommendedBadge() }
+                    if isSelected {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(Color.accentColor)
                     }
@@ -2976,29 +3112,30 @@ private struct WizardPresetCard: View {
                 Text(preset.shortSummary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(16)
-            .frame(minHeight: 138, alignment: .topLeading)
-            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor.opacity(0.55) : Color.white.opacity(0.09), lineWidth: isSelected ? 1.5 : 1)
-            )
         }
-        .buttonStyle(.plain)
     }
 }
 
 private struct CompactPresetRow: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let preset: ShowSetupPreset
     let isSelected: Bool
     let isRecommended: Bool
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        WizardSelectableCard(
+            isSelected: isSelected,
+            a11yLabel: preset.displayName + (isRecommended ? ", Recommended" : ""),
+            a11yValue: isSelected ? "Selected" : "",
+            a11yHint: preset.helpText,
+            minHeight: typeSize.isAccessibilitySize ? nil : 46,
+            alignment: .leading,
+            action: action
+        ) {
             HStack(spacing: 12) {
                 Image(systemName: preset.systemIcon)
                     .font(.system(size: 16, weight: .semibold))
@@ -3010,38 +3147,22 @@ private struct CompactPresetRow: View {
                         Text(preset.displayName)
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(.primary)
-                        if isRecommended {
-                            Text("Recommended")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(Color.accentColor)
-                        }
+                        if isRecommended { RecommendedBadge() }
                     }
                     Text(preset.shortSummary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(Color.accentColor)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
-            .background(isSelected ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor.opacity(0.55) : Color.secondary.opacity(0.12), lineWidth: isSelected ? 1.5 : 1)
-            )
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(preset.displayName)
-        .accessibilityValue(isSelected ? "Selected" : "")
-        .accessibilityHint(preset.helpText)
     }
 }
 
@@ -3062,14 +3183,22 @@ private struct WizardControlCard<Content: View>: View {
 }
 
 private struct ConnectorSetupCard: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let option: ConnectorSetupOption
     let isSelected: Bool
     let detail: String
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
+        WizardSelectableCard(
+            isSelected: isSelected,
+            a11yLabel: option.title,
+            a11yValue: isSelected ? "Selected" : "",
+            a11yHint: detail,
+            minHeight: typeSize.isAccessibilitySize ? nil : 108,
+            action: action
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: option.systemImage)
                         .font(.title3.weight(.semibold))
@@ -3088,20 +3217,10 @@ private struct ConnectorSetupCard: View {
                 Text(option.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(14)
-            .frame(minHeight: 112, alignment: .topLeading)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .background(isSelected ? Color.accentColor.opacity(0.08) : Color(nsColor: .controlBackgroundColor).opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor.opacity(0.50) : Color.secondary.opacity(0.12), lineWidth: 1)
-            )
         }
-        .buttonStyle(.plain)
-        .help(detail)
     }
 }
 
@@ -3122,11 +3241,14 @@ private struct WizardInsightRow: View {
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(14)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .statusGlassTile(tint: .accentColor)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -3143,16 +3265,20 @@ private struct WizardReadinessStrip: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.callout.bold())
-                    .lineLimit(1)
+                    .lineLimit(2)
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .padding(16)
-        .background((isReady ? Color.green : Color.orange).opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .statusGlassTile(tint: isReady ? .green : .orange)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel((isReady ? "Ready. " : "Warning. ") + title)
+        .accessibilityValue(detail)
     }
 }
 
@@ -3174,10 +3300,13 @@ private struct WizardMiniStatus: View {
                     .font(.caption)
                     .lineLimit(1)
             }
+            Spacer(minLength: 0)
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .statusGlassTile(tint: .secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(value)")
     }
 }
 

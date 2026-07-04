@@ -1,5 +1,15 @@
 # Dead Air Release Notes
 
+## 4.0.1 Build 8
+
+Setup Assistant redesign — responsive and first-party macOS polish.
+
+- The Setup Assistant now opens in a guided sidebar layout with a live step navigator and Output/Inbound/Connector status, and it stays legible from the smallest sheet size up to a maximized window (adaptive rail, capped grids, Dynamic Type support).
+- Unified every wizard card onto one surface that honors Light/Dark/Show Dark, Reduce Transparency, and Increase Contrast — fixing preset-card borders that were invisible in Light mode.
+- Connectors step is now a single, unambiguous chooser (one grid of connectors plus a "No Outbound Cues" option) instead of a picker and a card grid that could disagree.
+- Renamed off-brand step labels ("EZ Setup" → "Preset", "Files & Control" → "Control"), moved the file-storage choice onto the Audio step, added Escape-to-cancel, and normalized spacing and typography throughout.
+- VoiceOver now announces every preset and connector card's name, selection, and position, and the step navigator reflects completed/current/upcoming state.
+
 ## 4.0.1 Build 7
 
 Support-bundle host redaction.
