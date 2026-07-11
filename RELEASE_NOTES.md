@@ -1,5 +1,15 @@
 # Dead Air Release Notes
 
+## 4.0.1 Build 10
+
+Show-safety and durability hardening.
+
+- The interface accent is now a fixed Dead Air teal regardless of your Mac's system accent color, so state colors read the same on every machine.
+- Removing a bed now asks for confirmation and reminds you the audio file on disk is not deleted.
+- Diagnostics never write raw event text to the system log, even with redaction turned off — closing a path that could bypass support-bundle redaction.
+- The no-sleep power assertion is always released, backup and quarantine files self-prune (keeping the ten most recent of each), and a failed audio-engine restart during a fade or crossfade is now logged instead of swallowed silently.
+- Signing pipeline follows Apple's guidance (no `--deep` on signing).
+
 ## 4.0.1 Build 9
 
 Settings, Help, menu bar, and terminology refinement.

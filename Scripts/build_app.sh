@@ -50,10 +50,13 @@ for doc in README.md USER_GUIDE.md TECHNICAL_README.md QUICKSTART.md TROUBLESHOO
 done
 
 /usr/bin/xattr -cr "$APP_DIR" 2>/dev/null || true
+# Apple discourages --deep for signing (it signs nested code in an unspecified
+# order and can mask problems). This is a single-bundle app with no embedded
+# frameworks, so a plain bundle sign is correct. --deep is kept only on verify.
 if [[ ${#CODE_SIGN_OPTIONS[@]} -gt 0 ]]; then
-  /usr/bin/codesign --force --deep --sign "$SIGN_IDENTITY" "${CODE_SIGN_OPTIONS[@]}" --entitlements "$ENTITLEMENTS" "$APP_DIR"
+  /usr/bin/codesign --force --sign "$SIGN_IDENTITY" "${CODE_SIGN_OPTIONS[@]}" --entitlements "$ENTITLEMENTS" "$APP_DIR"
 else
-  /usr/bin/codesign --force --deep --sign "$SIGN_IDENTITY" --entitlements "$ENTITLEMENTS" "$APP_DIR"
+  /usr/bin/codesign --force --sign "$SIGN_IDENTITY" --entitlements "$ENTITLEMENTS" "$APP_DIR"
 fi
 /usr/bin/codesign --verify --deep --strict "$APP_DIR"
 

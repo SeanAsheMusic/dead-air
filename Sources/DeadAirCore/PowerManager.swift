@@ -46,4 +46,10 @@ public final class PowerManager: @unchecked Sendable {
         }
         Diagnostics.shared.record(LogEvent(source: "power", message: "show mode power assertions released"))
     }
+
+    deinit {
+        // Safety net: never leak the no-sleep assertion if an owner is
+        // released without an explicit disarm on some exit path.
+        disarm()
+    }
 }

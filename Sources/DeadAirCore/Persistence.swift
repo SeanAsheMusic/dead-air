@@ -161,6 +161,31 @@ public final class PersistenceStore: @unchecked Sendable {
         let backupURL = url.deletingLastPathComponent()
             .appendingPathComponent("\(url.lastPathComponent).backup-\(Self.timestamp())-\(UUID().uuidString.prefix(8))")
         try fileManager.copyItem(at: url, to: backupURL)
+        pruneOldSiblings(of: url, marker: ".backup-", keeping: 10)
+    }
+
+    /// Keeps the most recent `limit` timestamped siblings for a given base
+    /// file and marker, so `.backup-*` / `.corrupt-*` files can't accumulate
+    /// without bound in Application Support. Best-effort; failures are ignored.
+    private func pruneOldSiblings(of url: URL, marker: String, keeping limit: Int) {
+        let directory = url.deletingLastPathComponent()
+        let prefix = url.lastPathComponent + marker
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return }
+        let matches = entries
+            .filter { $0.lastPathComponent.hasPrefix(prefix) }
+            .sorted { lhs, rhs in
+                let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return lhsDate > rhsDate
+            }
+        guard matches.count > limit else { return }
+        for stale in matches.dropFirst(limit) {
+            try? fileManager.removeItem(at: stale)
+        }
     }
 
     private func quarantineConfig(reason: String) {
@@ -196,6 +221,7 @@ public final class PersistenceStore: @unchecked Sendable {
             .appendingPathComponent("\(url.lastPathComponent).corrupt-\(Self.timestamp())-\(UUID().uuidString.prefix(8))")
         do {
             try fileManager.moveItem(at: url, to: quarantineURL)
+            pruneOldSiblings(of: url, marker: ".corrupt-", keeping: 10)
             recordRecovery("\(label) was unreadable and was moved aside for recovery.")
         } catch {
             recordRecovery("\(label) was unreadable and could not be moved aside: \(error.localizedDescription)")

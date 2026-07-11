@@ -43,7 +43,11 @@ public final class Diagnostics: @unchecked Sendable {
     }
 
     public func record(_ event: LogEvent) {
-        logger.info("\(event.source, privacy: .public): \(event.message, privacy: .public)")
+        // The unified-log (Console.app / `log show`) sink is always redacted,
+        // independent of the user's JSONL/support-bundle redaction setting, so
+        // an accidental path/host in a message can never leak to the system log.
+        let safeMessage = PrivacyRedactor.redact(event.message)
+        logger.info("\(event.source, privacy: .public): \(safeMessage, privacy: .public)")
 
         queue.async {
             let storedEvent = self.redactSensitiveData ? self.redacted(event) : event

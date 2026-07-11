@@ -147,6 +147,14 @@ private extension BedItem {
     }
 }
 
+extension Color {
+    /// Fixed brand accent (Dead Air teal). Applied via `.tint` at every scene
+    /// root so the interactive accent always matches the logo, regardless of
+    /// the user's macOS system accent color — operators read state by color on
+    /// a dark stage, so it must be consistent across machines.
+    static let deadAirAccent = Color(red: 0.13, green: 0.72, blue: 0.80)
+}
+
 @main
 struct DeadAirApp: App {
     @NSApplicationDelegateAdaptor(DeadAirAppDelegate.self) private var appDelegate
@@ -158,6 +166,7 @@ struct DeadAirApp: App {
             ContentView()
                 .environmentObject(model)
                 .environment(\.deadAirAccessibility, model.config.accessibility)
+                .tint(.deadAirAccent)
                 .frame(minWidth: 380, minHeight: 360)
                 .task {
                     model.start()
@@ -201,12 +210,14 @@ struct DeadAirApp: App {
         MenuBarExtra("Dead Air", systemImage: "waveform") {
             MenuBarControls()
                 .environmentObject(model)
+                .tint(.deadAirAccent)
         }
 
         Window("Dead Air Settings", id: "settings") {
             DeadAirSettingsWindow()
                 .environmentObject(model)
                 .environment(\.deadAirAccessibility, model.config.accessibility)
+                .tint(.deadAirAccent)
                 .frame(minWidth: 420, idealWidth: 780, minHeight: 360, idealHeight: 620)
                 .preferredColorScheme(model.preferredColorScheme)
                 .task {
@@ -4973,6 +4984,7 @@ struct MIDIMappingRow: View {
 struct LibraryView: View {
     @EnvironmentObject private var model: DeadAirModel
     @Binding var isDropTargeted: Bool
+    @State private var confirmingBedRemoval = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -5070,9 +5082,20 @@ struct LibraryView: View {
                     Image(systemName: "arrow.down")
                 }
                 Button(role: .destructive) {
-                    model.removeSelectedBed()
+                    if model.selectedBedID != nil { confirmingBedRemoval = true }
                 } label: {
                     Image(systemName: "trash")
+                }
+                .disabled(model.selectedBedID == nil)
+                .confirmationDialog(
+                    "Remove this bed from the playlist?",
+                    isPresented: $confirmingBedRemoval,
+                    titleVisibility: .visible
+                ) {
+                    Button("Remove Bed", role: .destructive) { model.removeSelectedBed() }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This removes it from the current playlist. The audio file on disk is not deleted.")
                 }
                 Spacer()
                 Text(model.filteredBeds.count == model.beds.count ? "\(model.beds.count) total" : "\(model.filteredBeds.count) shown / \(model.beds.count) total")

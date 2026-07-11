@@ -231,7 +231,11 @@ public final class AudioEngineController: @unchecked Sendable {
         queue.async {
             guard self.activeBuffer != nil else { return }
             if !self.engine.isRunning {
-                try? self.engine.start()
+                do {
+                    try self.engine.start()
+                } catch {
+                    Diagnostics.shared.record(LogEvent(source: "audio", message: "engine restart failed during fade in", raw: error.localizedDescription))
+                }
             }
             if !self.activeBufferIsScheduled, let activeBuffer = self.activeBuffer {
                 self.activePlayer.scheduleBuffer(activeBuffer, at: nil, options: [.loops], completionHandler: nil)
@@ -305,7 +309,11 @@ public final class AudioEngineController: @unchecked Sendable {
         cancelFade()
 
         if !engine.isRunning {
-            try? engine.start()
+            do {
+                try engine.start()
+            } catch {
+                Diagnostics.shared.record(LogEvent(source: "audio", message: "engine restart failed during crossfade", raw: error.localizedDescription))
+            }
         }
 
         let outgoingPlayer = activePlayer
