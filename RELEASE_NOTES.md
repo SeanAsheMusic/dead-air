@@ -1,5 +1,25 @@
 # Dead Air Release Notes
 
+## 4.0.1 Build 11
+
+Signal design language — the Undeniable Spectacle house look.
+
+- Retheme to a distinctive, dark-first, instrument-grade visual system: a
+  charcoal surface-elevation ladder, teal "signal" accent, red "on-air" tally,
+  machined panels with a top bevel and teal-tinted hairlines, and a glowing
+  teal signal line seaming the header.
+- Transport controls are now tactile hardware keys with per-action glow (Fade
+  In teal, Fade Out blue, Next Bed amber, Panic Mute emphasized red).
+- Status readouts adopt an instrument-panel style: monospaced uppercase tracked
+  labels and tabular values, tone-tinted (ready/caution/on-air).
+- All surface treatments remain appearance-adaptive and honor Reduce
+  Transparency, reduce-glass-effects, and increase-contrast. No behavior or
+  automation-ID changes — a pure visual system centralized in shared primitives.
+- The full spec is in `BRAND/SIGNAL_DESIGN_LANGUAGE.md`; it is the baseline for
+  the rest of the Undeniable Spectacle line (Show Off, Luminescence, Tonograph,
+  NoCab, Board).
+
+
 ## 4.0.1 Build 10
 
 Show-safety and durability hardening.

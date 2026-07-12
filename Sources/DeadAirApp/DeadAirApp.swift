@@ -152,7 +152,7 @@ extension Color {
     /// root so the interactive accent always matches the logo, regardless of
     /// the user's macOS system accent color — operators read state by color on
     /// a dark stage, so it must be consistent across machines.
-    static let deadAirAccent = Color(red: 0.13, green: 0.72, blue: 0.80)
+    static let deadAirAccent = Brand.accent
 }
 
 @main
@@ -5629,6 +5629,8 @@ struct MenuBarControls: View {
 }
 
 struct ControlButton: View {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.deadAirAccessibility) private var appAccessibility
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -5648,6 +5650,7 @@ struct ControlButton: View {
                 Image(systemName: systemImage)
                     .font(.system(size: iconSize, weight: .bold))
                     .foregroundStyle(tint)
+                    .shadow(color: reduceEffects ? .clear : tint.opacity(0.55), radius: 7)
                 Text(title)
                     .font(.system(size: titleSize, weight: .semibold))
                     .foregroundStyle(.primary)
@@ -5657,21 +5660,43 @@ struct ControlButton: View {
             }
             .frame(maxWidth: .infinity, minHeight: controlHeight)
             .padding(.horizontal, 8)
-            .background(
-                tint.opacity(emphasized ? 0.22 : 0.10),
-                in: RoundedRectangle(cornerRadius: 8)
-            )
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            // Machined hardware key: raised surface + tint wash, a top bevel,
+            // a tint-lit rim, and a coloured glow that reads as "energised".
+            .background {
+                ZStack {
+                    RoundedRectangle(cornerRadius: Brand.radiusPanel, style: .continuous)
+                        .fill(Brand.surface(3, scheme))
+                    RoundedRectangle(cornerRadius: Brand.radiusPanel, style: .continuous)
+                        .fill(tint.opacity(emphasized ? 0.20 : 0.10))
+                }
+            }
+            .overlay(bevel)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(tint.opacity(emphasized ? 0.55 : 0.22), lineWidth: emphasized ? 1.25 : 1)
+                RoundedRectangle(cornerRadius: Brand.radiusPanel, style: .continuous)
+                    .stroke(tint.opacity(emphasized ? 0.60 : 0.34), lineWidth: emphasized ? 1.5 : 1)
             )
+            .shadow(color: reduceEffects ? .clear : tint.opacity(emphasized ? 0.34 : 0.16), radius: emphasized ? 14 : 9, x: 0, y: 0)
+            .shadow(color: reduceEffects ? .clear : Brand.dropShadow(scheme), radius: 5, x: 0, y: 3)
         }
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(title)
         .accessibilityHint(help)
         .accessibilityIdentifier(automationID)
+    }
+
+    @ViewBuilder private var bevel: some View {
+        if !reduceEffects {
+            RoundedRectangle(cornerRadius: Brand.radiusPanel, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [Brand.topBevel(scheme), .clear], startPoint: .top, endPoint: .center),
+                    lineWidth: 1
+                )
+        }
+    }
+
+    private var reduceEffects: Bool {
+        reduceTransparency || appAccessibility.reduceGlassEffects
     }
 
     private var useLargeControls: Bool {
@@ -5692,6 +5717,7 @@ struct ControlButton: View {
 }
 
 struct StatusPill: View {
+    @Environment(\.colorScheme) private var scheme
     @Environment(\.deadAirAccessibility) private var appAccessibility
 
     enum Tone {
@@ -5707,21 +5733,30 @@ struct StatusPill: View {
     let automationID: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(title.uppercased())
-                .font(.caption2.bold())
+                .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                .tracking(0.8)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.callout.bold())
+                .font(.callout.weight(.semibold))
                 .monospacedDigit()
+                .foregroundStyle(valueColor)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(background, in: RoundedRectangle(cornerRadius: 8))
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous)
+                    .fill(Brand.surface(2, scheme))
+                RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous)
+                    .fill(toneTint.opacity(appAccessibility.increaseStatusContrast ? 0.26 : 0.15))
+            }
+        }
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(appAccessibility.increaseStatusContrast ? 0.36 : 0.13), lineWidth: appAccessibility.increaseStatusContrast ? 1.5 : 1)
+            RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous)
+                .stroke(toneTint.opacity(appAccessibility.increaseStatusContrast ? 0.55 : 0.32), lineWidth: appAccessibility.increaseStatusContrast ? 1.6 : 1)
         )
         .help(help)
         .accessibilityElement(children: .combine)
@@ -5731,11 +5766,19 @@ struct StatusPill: View {
         .accessibilityIdentifier(automationID)
     }
 
-    private var background: Color {
+    private var toneTint: Color {
         switch tone {
-        case .good: Color.green.opacity(0.16)
-        case .neutral: Color.secondary.opacity(0.12)
-        case .bad: Color.red.opacity(0.20)
+        case .good: Brand.ok
+        case .neutral: Brand.accent
+        case .bad: Brand.live
+        }
+    }
+
+    private var valueColor: Color {
+        switch tone {
+        case .good: Brand.ok
+        case .neutral: .primary
+        case .bad: Brand.live
         }
     }
 }
@@ -5820,11 +5863,76 @@ struct HelpIcon: View {
     }
 }
 
+// MARK: - Undeniable Spectacle design language — "Signal"
+//
+// A distinctive, dark-first, instrument-grade visual system shared across
+// Undeniable Spectacle apps (Dead Air, Show Off, Luminescence, Tonograph,
+// NoCab, Board, …). Native macOS controls and behavior live underneath; the
+// skin on top is a machined charcoal panel, a glowing teal "signal" accent,
+// and a red "on-air" tally — road-ready stage hardware, not stock chrome.
+//
+// Everything is token-driven so the whole suite can share one look. Values
+// resolve per appearance; Reduce Transparency / Increase Contrast are honored
+// by the surface modifiers that consume these tokens.
+enum Brand {
+    /// The teal signal accent — the throughline motif across every app.
+    static let accent = Color(red: 0.11, green: 0.78, blue: 0.86)
+    /// Brighter teal for glows and highlights on active elements.
+    static let accentBright = Color(red: 0.38, green: 0.92, blue: 0.99)
+    /// The red "on-air" tally — live, armed, and critical states only.
+    static let live = Color(red: 1.0, green: 0.33, blue: 0.28)
+    static let warn = Color(red: 0.98, green: 0.70, blue: 0.28)
+    static let ok = Color(red: 0.24, green: 0.80, blue: 0.62)
+
+    static let radiusPanel: CGFloat = 12
+    static let radiusTile: CGFloat = 10
+    static let radiusControl: CGFloat = 7
+
+    /// Surface elevation ladder. 0 = app background (deepest), rising to 3 =
+    /// raised control. Dark is the hero; Light is a clean premium counterpart.
+    static func surface(_ level: Int, _ scheme: ColorScheme) -> Color {
+        if scheme == .dark {
+            switch level {
+            case 0: return Color(red: 0.043, green: 0.055, blue: 0.063)
+            case 1: return Color(red: 0.086, green: 0.102, blue: 0.118)
+            case 2: return Color(red: 0.110, green: 0.130, blue: 0.147)
+            default: return Color(red: 0.150, green: 0.176, blue: 0.196)
+            }
+        } else {
+            switch level {
+            case 0: return Color(red: 0.910, green: 0.920, blue: 0.935)
+            case 1: return Color(red: 0.955, green: 0.962, blue: 0.972)
+            case 2: return Color.white
+            default: return Color.white
+            }
+        }
+    }
+
+    /// Edge hairline. Teal-tinted in dark (the signal reads on every seam),
+    /// neutral in light.
+    static func hairline(_ scheme: ColorScheme, strong: Bool = false) -> Color {
+        if scheme == .dark {
+            return accent.opacity(strong ? 0.32 : 0.16)
+        }
+        return Color.black.opacity(strong ? 0.20 : 0.10)
+    }
+
+    /// Top-edge inner highlight that gives surfaces a machined bevel.
+    static func topBevel(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color.white.opacity(0.06) : Color.white.opacity(0.9)
+    }
+
+    /// Drop shadow under floating surfaces.
+    static func dropShadow(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color.black.opacity(0.45) : Color.black.opacity(0.10)
+    }
+}
+
 enum StagePalette {
-    static let fadeIn = Color(red: 0.24, green: 0.72, blue: 0.50)
-    static let fadeOut = Color(red: 0.25, green: 0.52, blue: 0.86)
-    static let nextBed = Color(red: 0.88, green: 0.54, blue: 0.24)
-    static let panic = Color(red: 0.82, green: 0.26, blue: 0.33)
+    static let fadeIn = Brand.accent
+    static let fadeOut = Color(red: 0.30, green: 0.58, blue: 0.90)
+    static let nextBed = Color(red: 0.95, green: 0.62, blue: 0.26)
+    static let panic = Brand.live
 }
 
 private struct DeadAirAccessibilityKey: EnvironmentKey {
@@ -5845,21 +5953,23 @@ struct StageGlassBackgroundView: View {
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            Brand.surface(0, colorScheme)
             if !reduceEffects {
-                LinearGradient(
-                    colors: baseColors,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                // Cinematic depth: a teal "signal" glow bleeding from the top,
+                // and a soft vignette settling toward the bottom.
+                RadialGradient(
+                    colors: [Brand.accent.opacity(colorScheme == .dark ? 0.06 : 0.05), .clear],
+                    center: .top,
+                    startRadius: 0,
+                    endRadius: 620
                 )
                 LinearGradient(
                     colors: [
-                        StagePalette.fadeOut.opacity(colorScheme == .dark ? 0.025 : 0.035),
                         .clear,
-                        StagePalette.fadeIn.opacity(colorScheme == .dark ? 0.02 : 0.035)
+                        (colorScheme == .dark ? Color.black : Color.black).opacity(colorScheme == .dark ? 0.28 : 0.05)
                     ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    startPoint: .center,
+                    endPoint: .bottom
                 )
             }
         }
@@ -5868,38 +5978,44 @@ struct StageGlassBackgroundView: View {
     private var reduceEffects: Bool {
         reduceTransparency || appAccessibility.reduceGlassEffects
     }
-
-    private var baseColors: [Color] {
-        if colorScheme == .dark {
-            return [
-                Color(nsColor: .windowBackgroundColor).opacity(0.96),
-                Color(nsColor: .controlBackgroundColor).opacity(0.82)
-            ]
-        }
-        return [
-            Color(nsColor: .windowBackgroundColor).opacity(0.98),
-            Color(nsColor: .controlBackgroundColor).opacity(0.70)
-        ]
-    }
 }
 
 private struct GlassHeaderModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.deadAirAccessibility) private var appAccessibility
 
     func body(content: Content) -> some View {
         content
-            .background(reduceEffects ? Color(nsColor: .windowBackgroundColor) : Color.clear)
-            .background {
-                if !reduceEffects {
-                    Rectangle().fill(.regularMaterial)
-                }
-            }
-            .overlay(alignment: .bottom) {
+            .background(Brand.surface(1, scheme))
+            .overlay(alignment: .bottom) { signalLine }
+    }
+
+    // The Undeniable Spectacle signature: a glowing teal signal line seams the
+    // header to the surface below, echoing the icon's signal path.
+    @ViewBuilder private var signalLine: some View {
+        if reduceEffects {
+            Rectangle()
+                .fill(Brand.hairline(scheme, strong: appAccessibility.increaseStatusContrast))
+                .frame(height: appAccessibility.increaseStatusContrast ? 1.5 : 1)
+        } else {
+            ZStack {
                 Rectangle()
-                    .fill(Color.secondary.opacity(appAccessibility.increaseStatusContrast ? 0.30 : 0.12))
-                    .frame(height: appAccessibility.increaseStatusContrast ? 1.5 : 1)
+                    .fill(Brand.accent)
+                    .frame(height: 2)
+                    .blur(radius: 3.5)
+                    .opacity(scheme == .dark ? 0.75 : 0.45)
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Brand.accent.opacity(0), Brand.accent, Brand.accent.opacity(0)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 1.5)
             }
+        }
     }
 
     private var reduceEffects: Bool {
@@ -5908,69 +6024,93 @@ private struct GlassHeaderModifier: ViewModifier {
 }
 
 private struct LiquidGlassPanelModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.deadAirAccessibility) private var appAccessibility
 
     func body(content: Content) -> some View {
         content
-            .background(panelFill, in: RoundedRectangle(cornerRadius: 8))
+            .background(Brand.surface(1, scheme), in: RoundedRectangle(cornerRadius: Brand.radiusPanel, style: .continuous))
+            .overlay(bevel(radius: Brand.radiusPanel))
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.secondary.opacity(appAccessibility.increaseStatusContrast ? 0.34 : 0.12), lineWidth: appAccessibility.increaseStatusContrast ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: Brand.radiusPanel, style: .continuous)
+                    .stroke(Brand.hairline(scheme, strong: appAccessibility.increaseStatusContrast), lineWidth: appAccessibility.increaseStatusContrast ? 1.5 : 1)
             )
-            .shadow(color: reduceEffects ? .clear : .black.opacity(0.07), radius: 8, x: 0, y: 3)
+            .shadow(color: reduceEffects ? .clear : Brand.dropShadow(scheme), radius: 10, x: 0, y: 4)
+    }
+
+    @ViewBuilder private func bevel(radius: CGFloat) -> some View {
+        if !reduceEffects {
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [Brand.topBevel(scheme), .clear], startPoint: .top, endPoint: .center),
+                    lineWidth: 1
+                )
+        }
     }
 
     private var reduceEffects: Bool {
         reduceTransparency || appAccessibility.reduceGlassEffects
-    }
-
-    private var panelFill: Color {
-        reduceEffects ? Color(nsColor: .controlBackgroundColor) : Color(nsColor: .controlBackgroundColor).opacity(0.10)
     }
 }
 
 private struct LiquidGlassTileModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.deadAirAccessibility) private var appAccessibility
 
     func body(content: Content) -> some View {
         content
-            .background(tileFill, in: RoundedRectangle(cornerRadius: 8))
+            .background(Brand.surface(2, scheme), in: RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous))
+            .overlay(bevel)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.secondary.opacity(appAccessibility.increaseStatusContrast ? 0.30 : 0.10), lineWidth: appAccessibility.increaseStatusContrast ? 1.35 : 1)
+                RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous)
+                    .stroke(Brand.hairline(scheme, strong: appAccessibility.increaseStatusContrast), lineWidth: appAccessibility.increaseStatusContrast ? 1.35 : 1)
             )
+            .shadow(color: reduceEffects ? .clear : Brand.dropShadow(scheme).opacity(0.6), radius: 5, x: 0, y: 2)
+    }
+
+    @ViewBuilder private var bevel: some View {
+        if !reduceEffects {
+            RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [Brand.topBevel(scheme), .clear], startPoint: .top, endPoint: .center),
+                    lineWidth: 1
+                )
+        }
     }
 
     private var reduceEffects: Bool {
         reduceTransparency || appAccessibility.reduceGlassEffects
     }
-
-    private var tileFill: Color {
-        reduceEffects ? Color(nsColor: .controlBackgroundColor) : Color(nsColor: .controlBackgroundColor).opacity(0.08)
-    }
 }
 
 private struct StatusGlassTileModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.deadAirAccessibility) private var appAccessibility
     let tint: Color
 
     func body(content: Content) -> some View {
         content
-            .background(tint.opacity(appAccessibility.increaseStatusContrast ? 0.22 : 0.12), in: RoundedRectangle(cornerRadius: 8))
             .background {
-                if reduceEffects {
-                    RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor))
-                } else {
-                    RoundedRectangle(cornerRadius: 8).fill(.thinMaterial)
+                ZStack {
+                    RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous)
+                        .fill(Brand.surface(2, scheme))
+                    RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous)
+                        .fill(tint.opacity(tintWash))
                 }
             }
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(tint.opacity(appAccessibility.increaseStatusContrast ? 0.45 : 0.20), lineWidth: appAccessibility.increaseStatusContrast ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: Brand.radiusTile, style: .continuous)
+                    .stroke(tint.opacity(appAccessibility.increaseStatusContrast ? 0.55 : 0.32), lineWidth: appAccessibility.increaseStatusContrast ? 1.6 : 1)
             )
+            .shadow(color: reduceEffects ? .clear : tint.opacity(scheme == .dark ? 0.22 : 0.0), radius: 6, x: 0, y: 0)
+    }
+
+    private var tintWash: Double {
+        let base = scheme == .dark ? 0.16 : 0.12
+        return appAccessibility.increaseStatusContrast ? base + 0.12 : base
     }
 
     private var reduceEffects: Bool {
