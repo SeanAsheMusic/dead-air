@@ -46,10 +46,11 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  cdn-frame-probe:
-    name: Verify YouTube auto-generated exact frames
+  source-pack:
+    name: Build exact-frame review pack for all 109 uploads
+    needs: inventory
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
 
     steps:
       - name: Check out isolated branch
@@ -63,45 +64,43 @@ jobs:
       - name: Install image tools
         run: python -m pip install --upgrade pillow
 
-      - name: Probe numbered frame variants from YouTube's image CDN
-        run: python tools/youtube-thumbnail-audit/probe_cdn_frames.py
+      - name: Download verified channel inventory
+        uses: actions/download-artifact@v4
+        with:
+          name: youtube-channel-inventory
+          path: artifacts/channel-inventory
 
-      - name: Upload CDN frame probe
+      - name: Download and label source-accurate frames for every upload
+        run: python tools/youtube-thumbnail-audit/build_source_pack.py
+
+      - name: Upload compact visual review boards and manifests
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: youtube-cdn-frame-probe
-          path: artifacts/cdn-frame-probe
+          name: youtube-source-overviews
+          path: |
+            artifacts/youtube-source-pack/overview-longform
+            artifacts/youtube-source-pack/overview-shorts
+            artifacts/youtube-source-pack/manifest.json
+            artifacts/youtube-source-pack/manifest.csv
+            artifacts/youtube-source-pack/summary.json
           if-no-files-found: error
           retention-days: 14
 
-  browser-frame-probe:
-    name: Verify real video-element frame capture
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-
-    steps:
-      - name: Check out isolated branch
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Playwright
-        run: |
-          python -m pip install --upgrade playwright
-          python -m playwright install --with-deps chromium
-
-      - name: Capture exact decoded video frames in a real browser
-        run: python tools/youtube-thumbnail-audit/probe_browser_frames.py
-
-      - name: Upload browser frame probe
+      - name: Upload exact long-form source frames
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: youtube-browser-frame-probe
-          path: artifacts/browser-frame-probe
+          name: youtube-source-longform
+          path: artifacts/youtube-source-pack/longform
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload exact Shorts source frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-source-shorts
+          path: artifacts/youtube-source-pack/shorts
           if-no-files-found: error
           retention-days: 14
