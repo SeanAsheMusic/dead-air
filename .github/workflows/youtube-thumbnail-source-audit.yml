@@ -32,7 +32,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install current yt-dlp
-        run: python -m pip install --upgrade yt-dlp
+        run: python -m pip install --upgrade "yt-dlp[default]"
 
       - name: Inventory channel tabs without downloading videos
         run: python tools/youtube-thumbnail-audit/inventory.py
@@ -60,8 +60,22 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install yt-dlp and PO-token provider plugin
-        run: python -m pip install --upgrade yt-dlp bgutil-ytdlp-pot-provider
+      - name: Set up supported Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install yt-dlp, EJS, impersonation, and PO-token provider
+        run: |
+          python -m pip install --upgrade "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
+          yt-dlp --version
+          node --version
+          ffmpeg -version | head -n 1
 
       - name: Start local BotGuard PO-token provider
         run: |
@@ -70,7 +84,7 @@ jobs:
           docker ps --filter name=bgutil-provider
           docker logs bgutil-provider || true
 
-      - name: Probe representative standard, Short, and music-video uploads
+      - name: Probe one representative upload through anonymous client fallbacks
         run: python tools/youtube-thumbnail-audit/probe_source_access.py
 
       - name: Upload exact-frame probe and diagnostics
